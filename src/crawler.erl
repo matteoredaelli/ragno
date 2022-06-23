@@ -5,7 +5,7 @@
 	 save_url_data/2,
 	 url_filename/1]).
 
--compile(export_all).
+%% -compile(export_all).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -41,10 +41,10 @@ re_extract_links(Text) ->
 	   "<a href=\"(?P<A>[^\"]+)\"", 
 	   [{capture,['A'],list}, global]).
 
-re_extract_title(Text) ->
-    re:run(Text,
-	   "<title>(?P<A>[^\"]+)</title>", 
-	   [{capture,['A'],list}, global]).
+%%re_extract_title(Text) ->
+%%    re:run(Text,
+%%	   "<title>(?P<A>[^\"]+)</title>", 
+%%	   [{capture,['A'],list}, global]).
 
 is_http_link(Url) ->
     string:prefix(Url, "http") =/= nomatch.
