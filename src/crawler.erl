@@ -1,11 +1,10 @@
 -module(crawler).
 
 -export([crawl_domain/1,
+	 crawl_domains/1,
 	 load_url_data/1,
 	 save_url_data/2,
 	 url_filename/1]).
-
-%% -compile(export_all).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -23,7 +22,8 @@ url_filename(Url) ->
 -spec save_url_data(string() | binary(), list()) -> ok | {error, atom()}.
 save_url_data(Url, Data) ->
     Filename = crawler:url_filename(Url),
-    file:write_file(Filename, erlang:term_to_binary(Data)).
+%%    file:write_file(Filename, erlang:term_to_binary(Data)).
+    file:write_file(Filename, io_lib:format("~p.\n", [Data])).
 
 -spec load_url_data(string() | binary) -> {ok, list()}.
 load_url_data(Url) ->
@@ -108,28 +108,36 @@ fetch_page_with_manual_redirect(URL) ->
     end.
   
 crawl_domain(Url) when is_list(Url) -> 
-    crawl_domain(list_to_binary(Url));
+   crawl_domain(list_to_binary(Url));
 crawl_domain(Url) when is_binary(Url) ->
     logger:debug("DEBUG: crawling ~p\n", [Url]),
     %%io:format("DEBUG: crawling ~p\n", [Url]),
-    case fetch_page_with_manual_redirect(Url) of
-	{ok, FinalUrl, {_Resp, Headers, Body}} ->
-	    Links = extract_links(Body, FinalUrl),
-	    %%io:format("DEBUG: Links ~p\n", [Links]),
-	    BaseLinks = base_urls(Links),
-	    NormalizedLinks = lists:map(fun uri_string:normalize/1, 
-					BaseLinks),
-	    %% BinDomains = lists:map(fun(X) -> list_to_binary(X) end, 
-	    %% 			   NormalizedLinks),
-	    UniqLinks = lists:usort(NormalizedLinks),
-	    {ok, [{url, Url}, 
-		  {final_url, FinalUrl}, 
-		  {headers, Headers}, 
-		  {links, Links}, 
-		  {domains, UniqLinks}]}
-      ;
-	{error, Error} ->
-	    %% something went wrong
-	    io:format("ERROR: crawling ~p\n\n~p", [Url, Error]),
-	    {error, Error}
-    end.
+    Data = case fetch_page_with_manual_redirect(Url) of
+	       {ok, FinalUrl, {_Resp, Headers, Body}} ->
+		   Links = extract_links(Body, FinalUrl),
+		   %%io:format("DEBUG: Links ~p\n", [Links]),
+		   BaseLinks = base_urls(Links),
+		   NormalizedLinks = lists:map(fun uri_string:normalize/1, 
+					       BaseLinks),
+		   %% BinDomains = lists:map(fun(X) -> list_to_binary(X) end, 
+		   %% 			   NormalizedLinks),
+		   UniqLinks = lists:usort(NormalizedLinks),
+		   {ok, [{url, Url}, 
+			 {final_url, FinalUrl}, 
+			 {headers, Headers}, 
+			 {links, Links}, 
+			 {domains, UniqLinks}]}
+	     ;
+	       {error, Error} ->
+		   %% something went wrong
+		   io:format("ERROR: crawling ~p\n\n~p", [Url, Error]),
+		   {error, Error}
+	   end,
+    save_url_data(Url, Data).
+
+crawl_domains(Urls) ->
+    lists:foreach(fun(Url) ->  wpool:cast(crawler_pool, 
+					  {crawler, crawl_domain , [Url]}) 
+		  end, 
+		  Urls).
+

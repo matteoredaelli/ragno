@@ -5,7 +5,7 @@ LOCAL_DEPS += inets ssl
 BUILD_DEPS += relx
 ERLC_OPTS = +debug_info
 
-#DEPS += worker_pool jiffy
-#dep_worker_pool = hex 6.0.1
+DEPS += worker_pool
+dep_worker_pool = hex 6.0.1
 
 include erlang.mk

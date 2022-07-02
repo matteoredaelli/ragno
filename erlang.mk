@@ -7590,6 +7590,8 @@ RELX_REL_EXT := .cmd
 endif
 
 run:: all
+	$(verbose) @echo MATTEO
+	$(verbose) @echo $(RELX_OUTPUT_DIR)/$(RELX_REL_NAME)/bin/$(RELX_REL_NAME)$(RELX_REL_EXT) $(RELX_REL_CMD)
 	$(verbose) $(RELX_OUTPUT_DIR)/$(RELX_REL_NAME)/bin/$(RELX_REL_NAME)$(RELX_REL_EXT) $(RELX_REL_CMD)
 
 ifdef RELOAD
