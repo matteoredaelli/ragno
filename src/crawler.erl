@@ -1,10 +1,21 @@
+% Ragno - web crawler
+%% Copyright (C) 2022  Matteo Redaelli
+
+%% This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+%% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+%% You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 -module(crawler).
+
+-define(CRAWLER_DEFAULT_OPTIONS, [{save_to_file, true}]).
 
 -export([crawl_domain/1,
 	 crawl_domains/1,
 	 load_url_data/1,
 	 save_url_data/2,
 	 url_filename/1]).
+
+%%-compile(export_all).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -28,13 +39,7 @@ save_url_data(Url, Data) ->
 -spec load_url_data(string() | binary) -> {ok, list()}.
 load_url_data(Url) ->
     Filename = crawler:url_filename(Url),
-    case file:read_file(Filename) of
-	{ok, BinData} ->
-	    {ok, erlang:binary_to_term(BinData)}
-      ;
-	Err ->
-	    Err
-    end.
+    file:read_file(Filename).
 
 re_extract_links(Text) ->
     re:run(Text,
@@ -52,16 +57,23 @@ is_http_link(Url) ->
 extract_links(Text, BaseUrl) ->
     case re_extract_links(Text) of
 	{match, List} ->
-	    BinUrls = lists:map(fun(X) -> list_to_binary(X) end, 
+	    BinUrls = lists:map(fun erlang:list_to_binary/1, 
 				List),
 	    Urls = lists:flatten(BinUrls),
 	    HttpUrls = lists:filter(fun is_http_link/1, Urls),
 	    AbsUrls = absolute_urls(HttpUrls, BaseUrl),
-	    lists:filter(fun(X) -> is_binary(X) end, AbsUrls)
+	    %%BinUrls = lists:filter(fun(X) -> is_binary(X) end, AbsUrls),
+	    lists:usort(AbsUrls)	
       ;
 	_ -> []
     end.
-     
+%%extract_domains(Links) when is_list(Links) ->  
+extract_domains(Links) ->     
+    BaseLinks = base_urls(Links),
+    NormalizedLinks = lists:map(fun uri_string:normalize/1, 
+				BaseLinks),
+    lists:usort(NormalizedLinks).
+    
 absolute_urls(Urls, BaseUrl) ->
     lists:foldl(fun(X, Acc) -> case uri_string:resolve(X, BaseUrl) of
 				   {error, _} -> Acc;
@@ -106,34 +118,39 @@ fetch_page_with_manual_redirect(URL) ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, ""}};
 	Error -> Error
     end.
-  
+
+
 crawl_domain(Url) when is_list(Url) -> 
-   crawl_domain(list_to_binary(Url));
+   crawl_domain(list_to_binary(Url), ?CRAWLER_DEFAULT_OPTIONS);
 crawl_domain(Url) when is_binary(Url) ->
+   crawl_domain(Url, ?CRAWLER_DEFAULT_OPTIONS).
+
+crawl_domain(Url, Options) when is_list(Url) -> 
+   crawl_domain(list_to_binary(Url), Options);
+crawl_domain(Url, Options) when is_binary(Url) ->
     logger:debug("DEBUG: crawling ~p\n", [Url]),
-    %%io:format("DEBUG: crawling ~p\n", [Url]),
     Data = case fetch_page_with_manual_redirect(Url) of
 	       {ok, FinalUrl, {_Resp, Headers, Body}} ->
 		   Links = extract_links(Body, FinalUrl),
-		   %%io:format("DEBUG: Links ~p\n", [Links]),
-		   BaseLinks = base_urls(Links),
-		   NormalizedLinks = lists:map(fun uri_string:normalize/1, 
-					       BaseLinks),
-		   %% BinDomains = lists:map(fun(X) -> list_to_binary(X) end, 
-		   %% 			   NormalizedLinks),
-		   UniqLinks = lists:usort(NormalizedLinks),
+		   UniqDomains = extract_domains(Links),
 		   {ok, [{url, Url}, 
 			 {final_url, FinalUrl}, 
 			 {headers, Headers}, 
 			 {links, Links}, 
-			 {domains, UniqLinks}]}
+			 {domains, UniqDomains}]}
 	     ;
 	       {error, Error} ->
 		   %% something went wrong
 		   io:format("ERROR: crawling ~p\n\n~p", [Url, Error]),
 		   {error, Error}
 	   end,
-    save_url_data(Url, Data).
+    case proplists:lookup(save_to_file, Options) of
+	{save_to_file, true} ->
+	    save_url_data(Url, Data);
+	_ ->
+	    true
+    end,
+    Data.
 
 crawl_domains(Urls) ->
     lists:foreach(fun(Url) ->  wpool:cast(crawler_pool, 
