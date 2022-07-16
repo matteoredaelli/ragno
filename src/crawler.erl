@@ -7,7 +7,7 @@
 
 -module(crawler).
 
--define(CRAWLER_DEFAULT_OPTIONS, [{save_to_file, true}]).
+-define(CRAWLER_DEFAULT_OPTIONS, [{save_to_file, true}, {remove_headers, ["etag", "keep-alive"]}]).
 
 -export([crawl_domain/1,
 	 crawl_domains/1,
@@ -15,9 +15,13 @@
 	 save_url_data/2,
 	 url_filename/1]).
 
-%%-compile(export_all).
+-compile(export_all).
 
 -include_lib("kernel/include/logger.hrl").
+
+-spec remove_headers(list(), list()) -> list().
+remove_headers(HeadersToBeRemoved, Headers) ->
+    lists:foldl(fun proplists:delete/2, Headers, HeadersToBeRemoved).
 
 -spec url_filename(string()) -> string().
 url_filename(Url) ->
