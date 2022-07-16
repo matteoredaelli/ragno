@@ -8,6 +8,7 @@
 -module(crawler).
 
 -define(CRAWLER_DEFAULT_OPTIONS, [
+				  {extract_domains, true},
 				  {remove_headers, ["etag", "keep-alive"]},
 				  {save_to_file, true}
 				 ]).
@@ -145,7 +146,12 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 					      Headers
 				      end,
 		   Links = extract_links(Body, FinalUrl),
-		   UniqDomains = extract_domains(Links),
+		   UniqDomains = case proplists:lookup(extract_domains, Options) of
+				     {extract_domains, true} ->
+					 extract_domains(Links);
+				     _ ->
+					 []
+				 end,
 		   {ok, [{url, Url}, 
 			 {final_url, FinalUrl}, 
 			 {headers, FilteredHeaders}, 
