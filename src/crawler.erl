@@ -7,7 +7,10 @@
 
 -module(crawler).
 
--define(CRAWLER_DEFAULT_OPTIONS, [{save_to_file, true}, {remove_headers, ["etag", "keep-alive"]}]).
+-define(CRAWLER_DEFAULT_OPTIONS, [
+				  {remove_headers, ["etag", "keep-alive"]},
+				  {save_to_file, true}
+				 ]).
 
 -export([crawl_domain/1,
 	 crawl_domains/1,
@@ -135,11 +138,17 @@ crawl_domain(Url, Options) when is_binary(Url) ->
     logger:debug("DEBUG: crawling ~p\n", [Url]),
     Data = case fetch_page_with_manual_redirect(Url) of
 	       {ok, FinalUrl, {_Resp, Headers, Body}} ->
+		   FilteredHeaders =  case proplists:lookup(remove_headers, Options) of
+					  {remove_headers, HeadersToBeDeleted} ->
+					      remove_headers(HeadersToBeDeleted, Headers);
+					  _ ->
+					      Headers
+				      end,
 		   Links = extract_links(Body, FinalUrl),
 		   UniqDomains = extract_domains(Links),
 		   {ok, [{url, Url}, 
 			 {final_url, FinalUrl}, 
-			 {headers, Headers}, 
+			 {headers, FilteredHeaders}, 
 			 {links, Links}, 
 			 {domains, UniqDomains}]}
 	     ;
