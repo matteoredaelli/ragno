@@ -8,9 +8,9 @@
 -module(crawler).
 
 -define(CRAWLER_DEFAULT_OPTIONS, [
-				  {extract_domains, true},
-				  {remove_headers, ["etag", "keep-alive"]},
-				  {save_to_file, true}
+				  extract_domains,
+				  {remove_headers, ["etag", "keep-alive", "age", "max-age"]},
+				  save_to_file
 				 ]).
 
 -export([crawl_domain/1,
@@ -44,10 +44,11 @@ save_url_data(Url, Data) ->
 %%    file:write_file(Filename, erlang:term_to_binary(Data)).
     file:write_file(Filename, io_lib:format("~p.\n", [Data])).
 
--spec load_url_data(string() | binary) -> {ok, list()}.
+-spec load_url_data(string() | binary()) -> {ok, list()}.
 load_url_data(Url) ->
     Filename = crawler:url_filename(Url),
-    file:read_file(Filename).
+    {ok, Data} = file:consult(Filename),
+    Data.
 
 re_extract_links(Text) ->
     re:run(Text,
