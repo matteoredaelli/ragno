@@ -124,7 +124,9 @@ fetch_page_with_manual_redirect(URL) ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, Body}};
 	{ok, {{_, Code, _}, Headers, _}}  when Code < 310 , Code >= 300 ->
 	    NewURL=proplists:get_value("location", Headers),
-	    fetch_page_with_manual_redirect(NewURL);
+	    %% the url in Location can be relative (ex. mozilla.org)
+	    NewAbsURL = uri_string:resolve(NewURL, URL),
+	    fetch_page_with_manual_redirect(NewAbsURL);
 	{ok, {{HttpVersion, Code, Reason}, Headers, _}}  when Code >= 400 ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, ""}};
 	Error -> Error
