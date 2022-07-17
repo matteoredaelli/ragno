@@ -61,7 +61,9 @@ re_extract_links(Text) ->
 %%	   [{capture,['A'],list}, global]).
 
 is_http_link(Url) ->
-    string:prefix(Url, "http") =/= nomatch.
+    string:prefix(Url, "http") =/= nomatch;
+is_http_link(Url) ->
+    string:prefix(Url, "#") =/= nomatch.
 
 extract_links(Text, BaseUrl) ->
     case re_extract_links(Text) of
@@ -85,7 +87,7 @@ extract_domains(Links) ->
     
 absolute_urls(Urls, BaseUrl) ->
     lists:foldl(fun(X, Acc) -> case uri_string:resolve(X, BaseUrl) of
-				   {error, _} -> Acc;
+				   {error, _, _} -> Acc;
 				   NewUrl -> [NewUrl|Acc]
 			       end
 		end,
