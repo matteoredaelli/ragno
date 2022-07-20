@@ -9,6 +9,7 @@
 
 -define(CRAWLER_DEFAULT_OPTIONS, [
 				  extract_domains,
+				  extract_tags,
 				  {remove_headers, ["etag", "keep-alive", "age", "max-age"]},
 				  save_to_file
 				 ]).
@@ -124,7 +125,7 @@ fetch_page_with_manual_redirect(URL) ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, Body}};
 	{ok, {{_, Code, _}, Headers, _}}  when Code < 310 , Code >= 300 ->
 	    NewURL=proplists:get_value("location", Headers),
-	    %% the url in Location can be relative (ex. mozilla.org)
+	    %% the url  in Location can be relative (ex. mozilla.org)
 	    NewAbsURL = uri_string:resolve(NewURL, URL),
 	    fetch_page_with_manual_redirect(NewAbsURL);
 	{ok, {{HttpVersion, Code, Reason}, Headers, _}}  when Code >= 400 ->
@@ -157,11 +158,18 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 				     _ ->
 					 []
 				 end,
+		   Tags = case proplists:lookup(extract_tags, Options) of
+				     {extract_tags, true} ->
+					 tagger:find_tags(FilteredHeaders);
+				     _ ->
+					 []
+				 end,
 		   {ok, [{url, Url}, 
 			 {final_url, FinalUrl}, 
 			 {headers, FilteredHeaders}, 
 			 {links, Links}, 
-			 {domains, UniqDomains}]}
+			 {domains, UniqDomains},
+			 {tags, Tags}]}
 	     ;
 	       {error, Error} ->
 		   %% something went wrong
