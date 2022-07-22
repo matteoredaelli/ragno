@@ -7,7 +7,7 @@
 
 -module(crawler).
 
--define(CRAWLER_DEFAULT_OPTIONS, [
+-define(CRAWLER_DEFAULT_OPTIONS, [extract_links,
 				  extract_domains,
 				  extract_tags,
 				  {remove_headers, ["etag", "keep-alive", "age", "max-age"]},
@@ -40,10 +40,13 @@ url_filename(Url) ->
     io_lib:format("~s~s", [Dir, Filename]).
 
 -spec save_url_data(string() | binary(), list()) -> ok | {error, atom()}.
-save_url_data(Url, Data) ->
+save_url_data(Url, {_, Data}) ->
     Filename = crawler:url_filename(Url),
-%%    file:write_file(Filename, erlang:term_to_binary(Data)).
-    file:write_file(Filename, io_lib:format("~p.\n", [Data])).
+    %%String = jsone:encode({Data}),
+    %%String = jiffy:encode({Data}),
+    String = io_lib:format("~p.\n", [Data]),
+    %% String = erlang:term_to_binary(Data),
+    file:write_file(Filename, String).
 
 -spec load_url_data(string() | binary()) -> {ok, list()}.
 load_url_data(Url) ->
@@ -56,6 +59,10 @@ re_extract_links(Text) ->
 	   "<a href=\"(?P<A>[^\"]+)\"", 
 	   [{capture,['A'],list}, global]).
 
+proplist_convert_keys_to_binary(List) ->
+    lists:map(fun({Key, Val}) -> {list_to_binary(Key), Val} end,
+	      List).
+	     
 %%re_extract_title(Text) ->
 %%    re:run(Text,
 %%	   "<title>(?P<A>[^\"]+)</title>", 
@@ -152,6 +159,12 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 					      Headers
 				      end,
 		   Links = extract_links(Body, FinalUrl),
+		   FinalLinks =  case proplists:lookup(extract_links, Options) of
+				     {extract_links, true} ->
+					 Links;
+				     _ ->
+					 []
+				 end,
 		   UniqDomains = case proplists:lookup(extract_domains, Options) of
 				     {extract_domains, true} ->
 					 extract_domains(Links);
@@ -165,9 +178,9 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 					 []
 				 end,
 		   {ok, [{url, Url}, 
-			 {final_url, FinalUrl}, 
-			 {headers, FilteredHeaders}, 
-			 {links, Links}, 
+			 {final_url, list_to_binary(FinalUrl)}, 
+			 {headers, proplist_convert_keys_to_binary(FilteredHeaders)}, 
+			 {links, FinalLinks}, 
 			 {domains, UniqDomains},
 			 {tags, Tags}]}
 	     ;
