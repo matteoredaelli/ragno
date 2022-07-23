@@ -21,13 +21,13 @@
 
 find_tag_from_keys(_) -> 
     String = "content-security-policy cache-control vary referrer-policy x-amz-cf-pop x-frame-options x-cache expires x-amz-cf-id content-length content-type x-xss-protection x-clacks-overhead x-backend-server date connection via strict-transport-security x-content-type-options",
-    true = tagger:find_tag_from_keys({{cloud, "aws"}, "-amz-"}, String).
+    true = tagger:find_tag_from_keys({{cloud, aws}, "-amz-"}, String).
 
- find_tags_from_keys(_) -> 
-    [{cloud, "aruba"}] = tagger:find_tags_from_keys(?HEADERS).
+find_tags_from_keys(_) -> 
+    [{cloud, aruba}] = tagger:find_tags_from_keys(?HEADERS).
 
- find_tags_from_values(_) -> 
-    [{server,"Apache"},{'x-powered-by',"modphp"}] = tagger:find_tags_from_values(?HEADERS).
+find_tags_from_values(_) -> 
+    [{server,<<"Apache">>},{'x-powered-by',<<"modphp">>}] = tagger:find_tags_from_values(?HEADERS).
 
- find_tags(_) -> 
-    [{cloud, "aruba"}, {server,"Apache"},{'x-powered-by',"modphp"}] = tagger:find_tags(?HEADERS).
+find_tags(_) -> 
+    [{cloud, aruba}, {server,<<"Apache">>},{'x-powered-by',<<"modphp">>}] = tagger:find_tags(?HEADERS).

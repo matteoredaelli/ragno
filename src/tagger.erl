@@ -14,18 +14,18 @@
 %%-compile(export_all).
 
 -define(TAGS_FROM_KEY_NAMES, [ 
-			  { {cloud, "aruba"}, "x-aruba-"},
-			  { {cloud, "aws"}, "x-amz-"},
-			  { {cloud, "azure"}, "x-azure"},
-			  { {language, "aspnet"}, "x-aspnet"},
-			  { {language, "php"}, "php"},
-			  { {sw, "apache"}, "apache|httpd"},
-			  { {sw, "drupal"}, "x-drupal"},
-			  { {sw, "litespeed"}, "x-litespeed"},
-			  { {sw, "nginx"}, "x-nginx"},
-			  { {sw, "nodejs2"}, "x-node"},
-			  { {sw, "varnish"}, "x-varnish-"},
-			  { {sw, "wordpress"}, "x-wp-"}
+			  { {cloud, aruba}, "x-aruba-"},
+			  { {cloud, aws}, "x-amz-"},
+			  { {cloud, azure}, "x-azure"},
+			  { {language, aspnet}, "x-aspnet"},
+			  { {language, php}, "php"},
+			  { {sw, apache}, "apache|httpd"},
+			  { {sw, drupal}, "x-drupal"},
+			  { {sw, litespeed}, "x-litespeed"},
+			  { {sw, nginx}, "x-nginx"},
+			  { {sw, nodejs}, "x-node"},
+			  { {sw, varnish}, "x-varnish-"},
+			  { {sw, wordpress}, "x-wp-"}
 		   ]).
 
 -define(TAGS_FROM_KEYS_VALUES, [
@@ -46,7 +46,7 @@ find_tags_from_values(Header) ->
 		  case Value = proplists:get_value(Key, Header) of
 		      undefined -> Acc;
 		      _Value ->
-			  [{list_to_atom(Key), Value}|Acc]
+			  [{list_to_atom(Key), list_to_binary(Value)}|Acc]
 		  end
 	  end,
     lists:foldl(Fun, 

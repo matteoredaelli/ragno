@@ -11,13 +11,13 @@
 				  extract_domains,
 				  extract_tags,
 				  {remove_headers, ["etag", "keep-alive", "age", "max-age"]},
-				  save_to_file
+				  {save_to_file, erl}
 				 ]).
 
 -export([crawl_domain/1,
 	 crawl_domains/1,
 	 load_url_data/1,
-	 save_url_data/2,
+	 save_url_data/3,
 	 url_filename/1]).
 
 -compile(export_all).
@@ -39,13 +39,17 @@ url_filename(Url) ->
     Filename = re:replace(Url, "/", "", [{return, binary}, global]),
     io_lib:format("~s~s", [Dir, Filename]).
 
--spec save_url_data(string() | binary(), list()) -> ok | {error, atom()}.
-save_url_data(Url, {_, Data}) ->
+-spec save_url_data(string() | binary(), list(), atom()) -> ok | {error, atom()}.
+save_url_data(Url, {_, Data}, Type) ->
     Filename = crawler:url_filename(Url),
-    %%String = jsone:encode({Data}),
-    %%String = jiffy:encode({Data}),
-    String = io_lib:format("~p.\n", [Data]),
-    %% String = erlang:term_to_binary(Data),
+    String = case Type of
+		 json ->
+		     jsone:encode(Data);
+		 erl ->
+		     io_lib:format("~p.\n", [Data]);
+		 binary ->
+		     erlang:term_to_binary(Data)
+	     end,
     file:write_file(Filename, String).
 
 -spec load_url_data(string() | binary()) -> {ok, list()}.
@@ -59,8 +63,8 @@ re_extract_links(Text) ->
 	   "<a href=\"(?P<A>[^\"]+)\"", 
 	   [{capture,['A'],list}, global]).
 
-proplist_convert_keys_to_binary(List) ->
-    lists:map(fun({Key, Val}) -> {list_to_binary(Key), Val} end,
+convert_headers_to_binary(List) ->
+    lists:map(fun({Key, Val}) -> {list_to_binary(Key), list_to_binary(Val)} end,
 	      List).
 	     
 %%re_extract_title(Text) ->
@@ -179,7 +183,7 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 				 end,
 		   {ok, [{url, Url}, 
 			 {final_url, list_to_binary(FinalUrl)}, 
-			 {headers, proplist_convert_keys_to_binary(FilteredHeaders)}, 
+			 {headers, convert_headers_to_binary(FilteredHeaders)}, 
 			 {links, FinalLinks}, 
 			 {domains, UniqDomains},
 			 {tags, Tags}]}
@@ -189,11 +193,11 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 		   io:format("ERROR: crawling ~p\n\n~p", [Url, Error]),
 		   {error, Error}
 	   end,
-    case proplists:lookup(save_to_file, Options) of
-	{save_to_file, true} ->
-	    save_url_data(Url, Data);
-	_ ->
-	    true
+    case Type = proplists:get_value(save_to_file, Options, none) of
+	none ->
+	    true;
+	Type ->
+	    save_url_data(Url, Data, Type)
     end,
     Data.
 
