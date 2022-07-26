@@ -2,6 +2,13 @@
 
 Ragno is a light crawler for domains. It extract some useful info about the domain
 
+```text
+  / _ \
+\_\(_)/_/
+ _//o\\_ Ragno
+  /   \
+```
+
 ## Usage
 
 From the command line
