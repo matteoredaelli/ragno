@@ -1,14 +1,16 @@
 % Ragno - web crawler
 %% Copyright (C) 2022  Matteo Redaelli
 
-%% This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+%% This program is free software: you can redistribute it and/or modify it under the  terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 %% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 %% You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 -module(crawler).
 
--define(CRAWLER_DEFAULT_OPTIONS, [extract_links,
+-define(CRAWLER_DEFAULT_OPTIONS, [
 				  extract_domains,
+				  extract_external_links,
+				  extract_internal_links,
 				  extract_tags,
 				  {remove_headers, ["etag", "keep-alive", "age", "max-age"]},
 				  {save_to_file, erl}
@@ -77,6 +79,7 @@ is_http_link(Url) ->
 is_http_link(Url) ->
     string:prefix(Url, "#") =/= nomatch.
 
+
 extract_links(Text, BaseUrl) ->
     case re_extract_links(Text) of
 	{match, List} ->
@@ -90,6 +93,28 @@ extract_links(Text, BaseUrl) ->
       ;
 	_ -> []
     end.
+
+-spec is_external_link(string() | binary(), string() | binary()) -> boolean().
+is_external_link(Url, BaseUrl) ->
+    nomatch == string:prefix(Url, BaseUrl).
+
+-spec is_internal_link(string() | binary(), string() | binary()) -> boolean().
+is_internal_link(Url, BaseUrl) ->
+    nomatch =/= string:prefix(Url, BaseUrl).
+
+-spec filter_external_links(list(), string() | binary()) -> list().
+filter_external_links(Urls, BaseUrl) ->
+    lists:filter(fun(Url) ->
+			 is_external_link(Url, BaseUrl)
+		 end, 
+		 Urls).
+
+-spec filter_internal_links(list(), string() | binary()) -> list().
+filter_internal_links(Urls, BaseUrl) ->	 	  
+    lists:filter(fun(Url) ->	  	  
+			 is_internal_link(Url, BaseUrl)
+		 end, 
+		 Urls).
 %%extract_domains(Links) when is_list(Links) ->  
 extract_domains(Links) ->     
     BaseLinks = base_urls(Links),
@@ -130,7 +155,9 @@ fetch_page(Url) ->
 		  ], 
 		  [{body_format, binary}]).
 
-fetch_page_with_manual_redirect(URL) ->
+fetch_page_with_manual_redirect(Url) when is_list(Url) -> 
+    fetch_page_with_manual_redirect(list_to_binary(Url));
+fetch_page_with_manual_redirect(URL) when is_binary(URL) ->
     case fetch_page(URL) of
 	{ok, {{HttpVersion, Code, Reason}, Headers, Body}}  when Code >= 200, Code < 299  ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, Body}};
@@ -138,7 +165,7 @@ fetch_page_with_manual_redirect(URL) ->
 	    NewURL=proplists:get_value("location", Headers),
 	    %% the url  in Location can be relative (ex. mozilla.org)
 	    NewAbsURL = uri_string:resolve(NewURL, URL),
-	    fetch_page_with_manual_redirect(NewAbsURL);
+	    fetch_page_with_manual_redirect(list_to_binary(NewAbsURL));
 	{ok, {{HttpVersion, Code, Reason}, Headers, _}}  when Code >= 400 ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, ""}};
 	Error -> Error
@@ -163,12 +190,18 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 					      Headers
 				      end,
 		   Links = extract_links(Body, FinalUrl),
-		   FinalLinks =  case proplists:lookup(extract_links, Options) of
-				     {extract_links, true} ->
-					 Links;
-				     _ ->
-					 []
-				 end,
+		   ExternalLinks =  case proplists:get_value(extract_external_links, Options) of
+					true ->
+					    filter_external_links(Links, Url);
+					_ ->
+					    []
+				    end,
+		   InternalLinks =  case proplists:get_value(extract_internal_links, Options) of
+					true ->
+					    filter_internal_links(Links, Url);
+					_ ->
+					    []
+				    end,
 		   UniqDomains = case proplists:lookup(extract_domains, Options) of
 				     {extract_domains, true} ->
 					 extract_domains(Links);
@@ -182,9 +215,10 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 					 []
 				 end,
 		   {ok, [{url, Url}, 
-			 {final_url, list_to_binary(FinalUrl)}, 
+			 {final_url, FinalUrl}, 
 			 {headers, convert_headers_to_binary(FilteredHeaders)}, 
-			 {links, FinalLinks}, 
+			 {external_links, ExternalLinks}, 
+			 {internal_links, InternalLinks}, 
 			 {domains, UniqDomains},
 			 {tags, Tags}]}
 	     ;

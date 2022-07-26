@@ -2,7 +2,8 @@
  -compile(export_all).
 
  all() ->
-     [remove_existing_header,
+     [filter_external_links,
+      remove_existing_header,
       remove_missing_header].
 
 -define(HEADERS, [{"connection","Keep-Alive"},
@@ -24,3 +25,18 @@
  remove_missing_header(_) -> 
     L1 = crawler:remove_headers(["missing"], ?HEADERS),
     L1 = ?HEADERS.
+
+ filter_external_links(_) ->
+    BaseUrl = <<"https://www.redaelli.org/">>,
+    ExternalLinks = [<<"https://matteo.org/a">>],
+    Links = [
+	     <<"https://www.redaelli.org/">>,
+	     <<"https://www.redaelli.org/a.txt">>,
+	     <<"https://www.redaelli.org/a/b.txt">>
+	    ] ++ ExternalLinks,
+    ExternalLinks = crawler:filter_external_links(Links, BaseUrl).
+    
+
+    
+    
+	    
