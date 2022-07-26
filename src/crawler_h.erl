@@ -22,5 +22,6 @@ maybe_echo(_, _, Req) ->
 echo(undefined, Req) ->
 	cowboy_req:reply(400, [], <<"Missing urls parameter.">>, Req);
 echo(Echo, Req) ->
-    crawler:crawl_domains([Echo]),
+    Urls = re:split(Echo, ","),
+    crawler:crawl_domains(Urls),
     cowboy_req:reply(200, #{}, Echo, Req).
