@@ -19,14 +19,15 @@ start(_Type, _Args) ->
     wpool:start_sup_pool(crawler_pool, [{workers, Workers}]),
 
     Dispatch = cowboy_router:compile([
-		{'_', [
-			{"/", crawler_h, []}
-		]}
-	]),
-	{ok, _} = cowboy:start_clear(http, [{port, 8080}], #{
-		env => #{dispatch => Dispatch}
-	}).
-	%%ragno_sup:start_link().
+				      {'_', [
+					     {"/", crawler_h, []}
+					    ]}
+				     ]),
+    {ok, CowboyPort} = application:get_env(cowboy_port),
+    {ok, _} = cowboy:start_clear(http, [{port, CowboyPort}], #{
+							 env => #{dispatch => Dispatch}
+							}).
+%%ragno_sup:start_link().
 
 stop(_State) ->
 	ok = cowboy:stop_listener(http).
