@@ -3,6 +3,7 @@
 
  all() ->
      [filter_external_links,
+      filter_subdomain_links,
       remove_existing_header,
       remove_missing_header].
 
@@ -36,7 +37,15 @@
 	    ] ++ ExternalLinks,
     ExternalLinks = crawler:filter_external_links(Links, BaseUrl).
     
-
+ filter_subdomain_links(_) ->
+    BaseUrl = <<"https://redaelli.org/">>,
+    SubdomainLinks = [<<"https://domain1.redaelli.org/a">>],
+    Links = [
+	     <<"https://redaelli.org/">>,
+	     <<"https://redaelli.org/a.txt">>,
+	     <<"https://redaelli.org/a/b.txt">>
+	    ] ++ SubdomainLinks,
+    SubdomainLinks = crawler:filter_subdomain_links(Links, BaseUrl).
     
     
 	    

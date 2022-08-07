@@ -11,6 +11,7 @@
 				  extract_domains,
 				  extract_external_links,
 				  extract_internal_links,
+				  extract_subdomains,
 				  extract_tags,
 				  {remove_headers, ["etag", "keep-alive", "age", "max-age"]},
 				  {save_to_file, erl}
@@ -75,8 +76,7 @@ convert_headers_to_binary(List) ->
 %%	   [{capture,['A'],list}, global]).
 
 is_http_link(Url) ->
-    string:prefix(Url, "http") =/= nomatch;
-is_http_link(Url) ->
+    string:prefix(Url, "http") =/= nomatch orelse
     string:prefix(Url, "#") =/= nomatch.
 
 
@@ -102,6 +102,19 @@ is_external_link(Url, BaseUrl) ->
 is_internal_link(Url, BaseUrl) ->
     nomatch =/= string:prefix(Url, BaseUrl).
 
+-spec is_subdomain_link(string() | binary(), string() | binary()) -> boolean().
+is_subdomain_link(Url, BaseHost) ->
+    UrlMap = uri_string:parse(Url),
+    Host = maps:get(host, UrlMap),
+    %% must not be an internal link
+    Host =/= BaseHost,
+    %% adding . 
+    BaseHostWithDot = erlang:iolist_to_binary([".", BaseHost]),
+    %%removing www
+    BaseHostWithDotNoWWW = binary:replace(BaseHostWithDot, <<"www.">>, <<"">>),
+    %% TODO
+    nomatch =/= string:find(Host, BaseHostWithDotNoWWW).
+
 -spec filter_external_links(list(), string() | binary()) -> list().
 filter_external_links(Urls, BaseUrl) ->
     lists:filter(fun(Url) ->
@@ -115,6 +128,15 @@ filter_internal_links(Urls, BaseUrl) ->
 			 is_internal_link(Url, BaseUrl)
 		 end, 
 		 Urls).
+-spec filter_subdomain_links(list(), string() | binary()) -> list().
+filter_subdomain_links(Urls, BaseUrl) ->	
+    BaseUrlMap = uri_string:parse(BaseUrl),
+    BaseHost = maps:get(host, BaseUrlMap), 	  
+    lists:filter(fun(Url) ->
+			 is_subdomain_link(Url, BaseHost)
+		 end, 
+		 Urls).
+
 %%extract_domains(Links) when is_list(Links) ->  
 extract_domains(Links) ->     
     BaseLinks = base_urls(Links),
@@ -208,6 +230,12 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 				     _ ->
 					 []
 				 end,
+		   SubDomains = case proplists:get_value(extract_subdomains, Options) of
+				     true ->
+					 filter_subdomain_links(UniqDomains, Url);
+				     _ ->
+					 []
+				 end,
 		   Tags = case proplists:lookup(extract_tags, Options) of
 				     {extract_tags, true} ->
 					 tagger:find_tags(FilteredHeaders);
@@ -220,6 +248,7 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 			 {external_links, ExternalLinks}, 
 			 {internal_links, InternalLinks}, 
 			 {domains, UniqDomains},
+			 {sub_domains, SubDomains},
 			 {tags, Tags}]}
 	     ;
 	       {error, Error} ->
