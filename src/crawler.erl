@@ -7,16 +7,6 @@
 
 -module(crawler).
 
--define(CRAWLER_DEFAULT_OPTIONS, [
-				  extract_external_domains,
-				  extract_external_links,
-				  extract_samedomain_links,
-				  extract_subdomains,
-				  extract_tags,
-				  {remove_headers, ["etag", "keep-alive", "age", "max-age"]},
-				  {save_to_file, erl}
-				 ]).
-
 -export([crawl_domain/1,
 	 crawl_domains/1,
 	 load_url_data/1,
@@ -204,9 +194,11 @@ fetch_page_with_manual_redirect(URL) when is_binary(URL) ->
 
 
 crawl_domain(Url) when is_list(Url) -> 
-   crawl_domain(list_to_binary(Url), ?CRAWLER_DEFAULT_OPTIONS);
+    {ok, Options} = application:get_env(ragno, crawler_default_options),
+    crawl_domain(list_to_binary(Url), Options);
 crawl_domain(Url) when is_binary(Url) ->
-   crawl_domain(Url, ?CRAWLER_DEFAULT_OPTIONS).
+    {ok, Options} = application:get_env(ragno, crawler_default_options),
+    crawl_domain(Url, Options).
 
 crawl_domain(Url, Options) when is_list(Url) -> 
    crawl_domain(list_to_binary(Url), Options);
