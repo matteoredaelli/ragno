@@ -25,16 +25,18 @@
 
 -include_lib("kernel/include/logger.hrl").
 
+%%-spec re_extract_links(string() | binary()) -> list().
 re_extract_links(Text) ->
     re:run(Text,
 	   "<a href=\"(?P<A>[^\"]+)\"", 
 	   [{capture,['A'],list}, global]).
 
+-spec is_http_link(string() | binary()) -> boolean().
 is_http_link(Url) ->
     string:prefix(Url, "http") =/= nomatch orelse
     string:prefix(Url, "#") =/= nomatch.
 
-
+-spec extract_links(string() | binary(), string() | binary()) -> list().
 extract_links(Text, BaseUrl) ->
     case re_extract_links(Text) of
 	{match, List} ->

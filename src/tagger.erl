@@ -6,14 +6,11 @@
 %% You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 -module(tagger).
--export([find_tag_from_keys/2,
-	 find_tags/1,
-	 find_tags_from_keys/1,
-	 find_tags_from_values/1]).
+-export([find_tags/1]).
 
-%%-compile(export_all).
+-compile(export_all).
 
--define(TAGS_FROM_KEY_NAMES, [ 
+-define(TAGS_FROM_KEY_REGEX, [ 
 			  { {cloud, aruba}, "x-aruba-"},
 			  { {cloud, aws}, "x-amz-"},
 			  { {cloud, azure}, "x-azure"},
@@ -28,20 +25,15 @@
 			  { {sw, wordpress}, "x-wp-"}
 		   ]).
 
--define(TAGS_FROM_KEYS_VALUES, [
-			      "x-powered-by",
-			      "server"
+-define(TAGS_FROM_KEY_NAME, [
+			     "x-powered-by",
+			     "server"
 			     ]).
 
-find_tag_from_keys({_Tag, Regex}, String) ->
-    case re:run(String, Regex) of
-	{match, _} ->
-	    true;
-	nomatch ->
-	    false
-    end.
-
-find_tags_from_values(Header) ->
+-define(TAGS_FROM_KEY_VALUE_REGEX, [ 
+				     { {sw, varnish}, "via", "varnish"}
+				   ]).
+find_tags_from_key_name(Header) ->
     Fun = fun(Key, Acc) -> 
 		  case Value = proplists:get_value(Key, Header) of
 		      undefined -> Acc;
@@ -51,23 +43,44 @@ find_tags_from_values(Header) ->
 	  end,
     lists:foldl(Fun, 
 		[], 
-		?TAGS_FROM_KEYS_VALUES).
+		?TAGS_FROM_KEY_NAME).
 
-find_tags_from_keys(Header) ->
+find_tags_from_key_regex(Header) ->
     Keys = proplists:get_keys(Header),
     String = string:join(Keys, " "),
     Fun = fun({Tag,Regex}, Acc) -> 
-		  case tagger:find_tag_from_keys({Tag, Regex}, String) of 
-		      false -> Acc ;
-		      true -> [Tag|Acc]
+		  case re:run(String, Regex) of
+		      {match, _} ->
+			  [Tag|Acc];
+		      nomatch ->
+			  Acc
 		  end
 	  end,
     lists:foldl(Fun, 
 		[], 
-		?TAGS_FROM_KEY_NAMES).
+		?TAGS_FROM_KEY_REGEX).
 
+find_tags_from_key_value_regex(Header) ->
+    Fun = fun({Tag, Key, Regex}, Acc) -> 
+		  %% search key / value
+		  case Value = proplists:get_value(Key, Header) of
+		      undefined -> Acc;
+		      Value ->
+			  %% search regex
+			  case re:run(Value, Regex) of
+			      {match, _} ->
+				  [Tag|Acc];
+			      nomatch ->
+				  Acc
+			  end
+		  end
+	  end,
+    lists:foldl(Fun, 
+		[], 
+		?TAGS_FROM_KEY_VALUE_REGEX).
 
 find_tags(Header) ->
-    K = tagger:find_tags_from_keys(Header),
-    V = tagger:find_tags_from_values(Header),
-    K ++ V.
+    KR = tagger:find_tags_from_key_regex(Header),
+    KN = tagger:find_tags_from_key_name(Header),
+    KVR = tagger:find_tags_from_key_value_regex(Header),
+    KR ++ KN ++ KVR.
