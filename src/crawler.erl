@@ -101,7 +101,7 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 					      Headers
 				      end,
 		   Links = links_ext:extract_links(Body, FinalUrl),
-		   ExternalLinks =  case proplists:get_value(extract_external_links, Options, false) of
+		   ExternalLinks =  case proplists:get_value(extract_external_links, Options, false) orelse proplists:get_value(extract_social, Options, false) of
 					true ->
 					    links_ext:filter_external_links(Links, Url);
 					_ ->
@@ -138,12 +138,19 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 				     _ ->
 					 []
 				 end,
+		   Social = case proplists:get_value(extract_social, Options, false) of
+				true ->
+				    social:find_identities(ExternalLinks);
+				_ ->
+				    []
+			    end,
 		   {ok, [{url, Url}, 
 			 {final_url, FinalUrl}, 
 			 {headers, convert_headers_to_binary(FilteredHeaders)}, 
 			 {external_links, ExternalLinks}, 
 			 {internal_links, InternalLinks}, 
 			 {external_domains, ExternalDomains},
+			 {social, Social},
 			 {sub_domains, SubDomains},
 			 {tags, Tags}]}
 	     ;

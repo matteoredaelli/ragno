@@ -1,13 +1,13 @@
- -module(tagger_SUITE).
- -compile(export_all).
+-module(tagger_SUITE).
+-compile(export_all).
 
- all() ->
-     [
-      find_tags,
-      find_tags_from_key_name,
-      find_tags_from_key_regex,
-      find_tags_from_key_value_regex
-     ].
+all() ->
+    [
+     find_tags,
+     find_tags_from_key_name,
+     find_tags_from_key_regex,
+     find_tags_from_key_value_regex
+    ].
 
 -define(HEADERS, [{"connection","Keep-Alive"},
 		  {"date","Fri, 15 Jul 2022 21:38:19 GMT"},

@@ -31,6 +31,8 @@
 			     ]).
 
 -define(TAGS_FROM_KEY_VALUE_REGEX, [ 
+				     { {cdn, cloudfront}, "x-cache", "cloudfront"},
+				     { {cdn, cloudfront}, "via", "cloudfront"},
 				     { {sw, varnish}, "via", "varnish"}
 				   ]).
 find_tags_from_key_name(Header) ->
