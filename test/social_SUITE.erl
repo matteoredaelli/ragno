@@ -23,7 +23,7 @@ find_identities(_) ->
     [
      {facebook,  <<"Pirelli">>},
      {instagram, <<"pirelli">>},
-     {linkedin,  <<"pirelli">>},
+     {linkedin,  <<"company/pirelli">>},
      {twitter,   <<"pirelli">>},
-     {youtube,   <<"pirelli">>}
+     {youtube,   <<"user/pirelli">>}
     ] = lists:sort(social:find_identities(?LINKS)).

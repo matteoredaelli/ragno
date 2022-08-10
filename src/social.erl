@@ -12,9 +12,11 @@
 -compile(export_all).
 
 -define(SOCIAL_IDENTITIES, [ 
-			     {youtube,   <<"https://www.youtube.com/(user|c)/(?P<A>[^/]+)">>},
-			     {twitter,   <<"https://twitter.com/(?P<A>[^/]+)">>},
-			     {linkedin,  <<"https://www.linkedin.com/.+/(?P<A>[^/]+)">>},
+			     {youtube_channel, <<"https://www.youtube.com/channel/(?P<A>[^/]+)">>},
+			     {youtube,   <<"https://www.youtube.com/(user|c)/(?P<A>.+)">>},
+			     {youtube,   <<"https://www.youtube.com/(?P<A>[^/]+)">>},
+			     {twitter,   <<"https://twitter.com/(?P<A>.+)">>},
+			     {linkedin,  <<"https://www.linkedin.com/(?P<A>.+)">>},
 			     {instagram, <<"https://www.instagram.com/(?P<A>[^/]+)/?">>},
 			     {facebook,  <<"https://www.facebook.com/(?P<A>[^/]+)">>}
 			   ]).
