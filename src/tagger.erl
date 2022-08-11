@@ -11,19 +11,20 @@
 -compile(export_all).
 
 -define(TAGS_FROM_KEY_REGEX, [ 
-			  { {cloud, aruba}, "x-aruba-"},
-			  { {cloud, aws}, "x-amz-"},
-			  { {cloud, azure}, "x-azure"},
-			  { {language, aspnet}, "x-aspnet"},
-			  { {language, php}, "php"},
-			  { {sw, apache}, "apache|httpd"},
-			  { {sw, drupal}, "x-drupal"},
-			  { {sw, litespeed}, "x-litespeed"},
-			  { {sw, nginx}, "x-nginx"},
-			  { {sw, nodejs}, "x-node"},
-			  { {sw, varnish}, "x-varnish-"},
-			  { {sw, wordpress}, "x-wp-"}
-		   ]).
+			       { [cdn, akamai], "x-akamai-"},
+			       { [cloud, aruba], "x-aruba-"},
+			       { [cloud, aws], "x-amz-"},
+			       { [cloud, azure], "x-azure"},
+			       { [language, aspnet], "x-aspnet"},
+			       { [language, php], "php"},
+			       { [sw, apache], "apache|httpd"},
+			       { [sw, drupal], "x-drupal"},
+			       { [sw, litespeed], "x-litespeed"},
+			       { [sw, nginx], "x-nginx"},
+			       { [sw, nodejs], "x-node"},
+			       { [sw, varnish], "x-varnish-"},
+			       { [sw, wordpress], "x-wp-"}
+			     ]).
 
 -define(TAGS_FROM_KEY_NAME, [
 			     "x-powered-by",
@@ -31,16 +32,17 @@
 			     ]).
 
 -define(TAGS_FROM_KEY_VALUE_REGEX, [ 
-				     { {cdn, cloudfront}, "x-cache", "cloudfront"},
-				     { {cdn, cloudfront}, "via", "cloudfront"},
-				     { {sw, varnish}, "via", "varnish"}
+				     { [cdn, cloudfront], "x-cache", "cloudfront"},
+				     { [cdn, cloudfront], "via", "cloudfront"},
+				     { [cdn, cloudflare], "server", "expect-ct"},
+				     { [sw, varnish], "via", "varnish"}
 				   ]).
 find_tags_from_key_name(Header) ->
     Fun = fun(Key, Acc) -> 
 		  case Value = proplists:get_value(Key, Header) of
 		      undefined -> Acc;
 		      _Value ->
-			  [{list_to_atom(Key), list_to_binary(Value)}|Acc]
+			  [[list_to_atom(Key), list_to_binary(Value)]|Acc]
 		  end
 	  end,
     lists:foldl(Fun, 

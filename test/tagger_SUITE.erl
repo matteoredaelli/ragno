@@ -23,17 +23,18 @@ all() ->
 		  {"keep-alive","timeout=15, max=100"}]).
 
 find_tags_from_key_regex(_) -> 
-    [{cloud, aruba}] = tagger:find_tags_from_key_regex(?HEADERS).
+    [[cloud, aruba]] = tagger:find_tags_from_key_regex(?HEADERS).
 
 find_tags_from_key_name(_) -> 
-    [{server,<<"Apache">>},{'x-powered-by',<<"modphp">>}] = tagger:find_tags_from_key_name(?HEADERS).
+    [[server,<<"Apache">>],
+     ['x-powered-by',<<"modphp">>]] = tagger:find_tags_from_key_name(?HEADERS).
 
 find_tags_from_key_value_regex(_) -> 
-    [{sw, varnish}] = tagger:find_tags_from_key_value_regex(?HEADERS).
+    [[sw, varnish]] = tagger:find_tags_from_key_value_regex(?HEADERS).
 
 find_tags(_) -> 
-    [{cloud, aruba}, 
-     {server,<<"Apache">>},
-     {'x-powered-by',<<"modphp">>},
-     {sw, varnish}
+    [[cloud, aruba], 
+     [server,<<"Apache">>],
+     ['x-powered-by',<<"modphp">>],
+     [sw, varnish]
     ] = tagger:find_tags(?HEADERS).
