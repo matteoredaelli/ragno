@@ -29,8 +29,9 @@ url_filename(Url) ->
     [Dir1, [C2|_Dir2]|_] = lists:reverse(List),
     Dir = io_lib:format("data/~s/~s/", [Dir1, [C2]]),
     ok = filelib:ensure_dir(Dir),
-    Filename = re:replace(Url, "/", "", [{return, binary}, global]),
-    io_lib:format("~s~s", [Dir, Filename]).
+    Filename = re:replace(Url, "://", "_", [{return, binary}, global]),
+    FilenameNoSlash = re:replace(Filename, "/", "", [{return, binary}, global]),
+    io_lib:format("~s~s", [Dir, FilenameNoSlash]).
 
 -spec save_url_data(string() | binary(), list(), atom()) -> ok | {error, atom()}.
 save_url_data(Url, {_, Data}, Type) ->
@@ -52,7 +53,7 @@ load_url_data(Url) ->
     Data.
 
 convert_headers_to_binary(List) ->
-    lists:map(fun({Key, Val}) -> {list_to_binary(Key), list_to_binary(Val)} end,
+    lists:map(fun({Key, Val}) -> [list_to_binary(Key), list_to_binary(Val)] end,
 	      List).
 	       
 fetch_page(Url) ->
