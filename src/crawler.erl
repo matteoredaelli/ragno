@@ -146,6 +146,7 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 				_ ->
 				    []
 			    end,
+		   logger:debug("Successfully crawled url ~p", [Url]),
 		   {ok, [{url, Url}, 
 			 {final_url, FinalUrl}, 
 			 {headers, convert_headers_to_binary(FilteredHeaders)}, 
@@ -158,7 +159,7 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 	     ;
 	       {error, Error} ->
 		   %% something went wrong
-		   logger:error("Error crawling ~p\n\n~p", [Url, Error]),
+		   logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
 		   {error, Error}
 	   end,
     case Type = proplists:get_value(save_to_file, Options, none) of
