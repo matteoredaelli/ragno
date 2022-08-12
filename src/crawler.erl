@@ -27,6 +27,7 @@ url_filename(Url) ->
     Host = maps:get(host, UrlMap),
     List = re:split(Host, "\\.", [{return, list}]),
     [Dir1, [C2|_Dir2]|_] = lists:reverse(List),
+    %% TODO: "data" path must be read from sys.config
     Dir = io_lib:format("data/~s/~s/", [Dir1, [C2]]),
     ok = filelib:ensure_dir(Dir),
     Filename = re:replace(Url, "://", "_", [{return, binary}, global]),
@@ -157,7 +158,7 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 	     ;
 	       {error, Error} ->
 		   %% something went wrong
-		   io:format("ERROR: crawling ~p\n\n~p", [Url, Error]),
+		   logger:error("Error crawling ~p\n\n~p", [Url, Error]),
 		   {error, Error}
 	   end,
     case Type = proplists:get_value(save_to_file, Options, none) of
