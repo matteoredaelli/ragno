@@ -32,9 +32,11 @@
 			     ]).
 
 -define(TAGS_FROM_KEY_VALUE_REGEX, [ 
+%%                                   { [cdn, cloudflare], "server", re:compile("akamai", [caseless])},
+				     { [cdn, cloudflare], "server", "akamai"},
 				     { [cdn, cloudfront], "x-cache", "cloudfront"},
 				     { [cdn, cloudfront], "via", "cloudfront"},
-				     { [cdn, cloudflare], "server", "expect-ct"},
+				     { [cdn, cloudflare], "server", "cloudflare"},
 				     { [sw, varnish], "via", "varnish"}
 				   ]).
 find_tags_from_key_name(Header) ->
@@ -42,7 +44,7 @@ find_tags_from_key_name(Header) ->
 		  case Value = proplists:get_value(Key, Header) of
 		      undefined -> Acc;
 		      _Value ->
-			  [[list_to_atom(Key), list_to_binary(Value)]|Acc]
+			  [[list_to_atom(Key), list_to_binary(string:to_lower(Value))]|Acc]
 		  end
 	  end,
     lists:foldl(Fun, 

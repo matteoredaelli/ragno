@@ -15,7 +15,7 @@ all() ->
 		  {"etag","\"a295912e-295e-5b98e996561e0\""},
 		  {"server","Apache"},
 		  {"via","1.1 varnish, 1.1 varnish"},
-		  {"x-powered-by","modphp"},
+		  {"x-powered-by","modPhp"},
 		  {"content-length","10590"},
 		  {"content-type","text/html"},
 		  {"last-modified","Sat, 23 Jan 2021 10:16:33 GMT"},
@@ -26,7 +26,7 @@ find_tags_from_key_regex(_) ->
     [[cloud, aruba]] = tagger:find_tags_from_key_regex(?HEADERS).
 
 find_tags_from_key_name(_) -> 
-    [[server,<<"Apache">>],
+    [[server,<<"apache">>],
      ['x-powered-by',<<"modphp">>]] = tagger:find_tags_from_key_name(?HEADERS).
 
 find_tags_from_key_value_regex(_) -> 
@@ -34,7 +34,7 @@ find_tags_from_key_value_regex(_) ->
 
 find_tags(_) -> 
     [[cloud, aruba], 
-     [server,<<"Apache">>],
+     [server,<<"apache">>],
      ['x-powered-by',<<"modphp">>],
      [sw, varnish]
     ] = tagger:find_tags(?HEADERS).
