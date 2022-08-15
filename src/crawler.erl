@@ -7,11 +7,13 @@
 
 -module(crawler).
 
--export([crawl_domain/1,
+-export([%%crawl_domain/1,
+	 crawl_domain/3,
 	 crawl_domains/1,
+	 crawl_domains/3,
 	 load_url_data/1,
-	 save_url_data/3,
-	 url_filename/1]).
+	 save_url_data/3
+	]).
 
 -compile(export_all).
 
@@ -21,22 +23,10 @@
 remove_headers(HeadersToBeRemoved, Headers) ->
     lists:foldl(fun proplists:delete/2, Headers, HeadersToBeRemoved).
 
--spec url_filename(string()) -> string().
-url_filename(Url) ->
-    UrlMap = uri_string:parse(Url),
-    Host = maps:get(host, UrlMap),
-    List = re:split(Host, "\\.", [{return, list}]),
-    [Dir1, [C2|_Dir2]|_] = lists:reverse(List),
-    %% TODO: "data" path must be read from sys.config
-    Dir = io_lib:format("data/~s/~s/", [Dir1, [C2]]),
-    ok = filelib:ensure_dir(Dir),
-    Filename = re:replace(Url, "://", "_", [{return, binary}, global]),
-    FilenameNoSlash = re:replace(Filename, "/", "", [{return, binary}, global]),
-    io_lib:format("~s~s", [Dir, FilenameNoSlash]).
-
 -spec save_url_data(string() | binary(), list(), atom()) -> ok | {error, atom()}.
-save_url_data(Url, {_, Data}, Type) ->
-    Filename = crawler:url_filename(Url),
+save_url_data(Filename, {_, Data}, Type) ->
+    ok = filelib:ensure_dir(Filename),
+    logger:debug("Appending url data for ~p to file ~p'", [Data, Filename]),
     String = case Type of
 		 json ->
 		     jsone:encode(Data);
@@ -45,7 +35,8 @@ save_url_data(Url, {_, Data}, Type) ->
 		 binary ->
 		     erlang:term_to_binary(Data)
 	     end,
-    file:write_file(Filename, String).
+    file:write_file(Filename, String, [append]),
+    file:write_file(Filename, "\n", [append]).
 
 -spec load_url_data(string() | binary()) -> {ok, list()}.
 load_url_data(Url) ->
@@ -83,16 +74,18 @@ fetch_page_with_manual_redirect(URL) when is_binary(URL) ->
     end.
 
 
-crawl_domain(Url) when is_list(Url) -> 
-    {ok, Options} = application:get_env(ragno, crawler_default_options),
-    crawl_domain(list_to_binary(Url), Options);
-crawl_domain(Url) when is_binary(Url) ->
-    {ok, Options} = application:get_env(ragno, crawler_default_options),
-    crawl_domain(Url, Options).
+%% crawl_domain(Url) when is_list(Url) -> 
+%%     {ok, Options} = application:get_env(ragno, crawler_default_options),
+%%     Id = erlang:system_time(microsecond),
+%%     crawl_domain(list_to_binary(Url), Id, Options);
+%% crawl_domain(Url) when is_binary(Url) ->
+%%     {ok, Options} = application:get_env(ragno, crawler_default_options),
+%%     Id = erlang:system_time(microsecond),
+%%     crawl_domain(Url, Id, Options).
 
-crawl_domain(Url, Options) when is_list(Url) -> 
-   crawl_domain(list_to_binary(Url), Options);
-crawl_domain(Url, Options) when is_binary(Url) ->
+crawl_domain(Url, Options, Filename) when is_list(Url) -> 
+   crawl_domain(list_to_binary(Url), Options, Filename);
+crawl_domain(Url, Options, Filename) when is_binary(Url) ->
     logger:debug("DEBUG: crawling ~p\n", [Url]),
     Data = case fetch_page_with_manual_redirect(Url) of
 	       {ok, FinalUrl, {_Resp, Headers, Body}} ->
@@ -166,13 +159,21 @@ crawl_domain(Url, Options) when is_binary(Url) ->
 	none ->
 	    true;
 	Type ->
-	    save_url_data(Url, Data, Type)
+	    save_url_data(Filename, Data, Type)
     end,
     Data.
 
 crawl_domains(Urls) ->
-    lists:foreach(fun(Url) ->  wpool:cast(crawler_pool, 
-					  {crawler, crawl_domain , [Url]}) 
+    {ok, DataDir} = application:get_env(ragno, crawler_data_directory),
+    Id = erlang:system_time(microsecond),
+    Filename = filename:join([DataDir, integer_to_list(Id)]),
+    logger:debug("DEBUG: crawling ~p and (maybe) saving to ~w\n", [Urls, Filename]),
+    {ok, Options} = application:get_env(ragno, crawler_default_options),
+    crawl_domains(Urls, Options, Filename).
+
+crawl_domains(Urls, Options, Filename) ->
+    lists:foreach(fun(Url) -> wpool:cast(crawler_pool, 
+					 {crawler, crawl_domain, [Url, Options, Filename]}) 
 		  end, 
 		  Urls).
 

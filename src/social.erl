@@ -16,6 +16,8 @@
 			     {twitter,   <<"^https://twitter.com/(?P<A>.+)$">>},
 			     {linkedin,  <<"^https://www.linkedin.com/(?P<A>.+)$">>},
 			     {instagram, <<"^https://www.instagram.com/(?P<A>[^/]+)/?$">>},
+			     {gitlab,    <<"^https://www.gitlab.com/(?P<A>[^/]+)$">>},
+			     {github,    <<"^https://www.github.com/(?P<A>[^/]+)$">>},
 			     {facebook,  <<"^https://www.facebook.com/(?P<A>[^/]+)$">>}
 			   ]).
 
