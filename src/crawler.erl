@@ -13,18 +13,22 @@
 	 crawl_domains/3,
 	 load_url_data/1,
 	 save_url_data/3
-	]).
+	
+]).
 
 -compile(export_all).
 
 -include_lib("kernel/include/logger.hrl").
+
+-define(RAGNO_VER, <<"0.1.0">>).
 
 -spec remove_headers(list(), list()) -> list().
 remove_headers(HeadersToBeRemoved, Headers) ->
     lists:foldl(fun proplists:delete/2, Headers, HeadersToBeRemoved).
 
 -spec save_url_data(string() | binary(), list(), atom()) -> ok | {error, atom()}.
-save_url_data(Filename, {_, Data}, Type) ->
+save_url_data(NoExtensionFilename, {Extension, Data}, Type) ->
+    Filename = NoExtensionFilename ++ "." ++ Extension,
     ok = filelib:ensure_dir(Filename),
     logger:debug("Appending url data for ~p to file ~p'", [Data, Filename]),
     String = case Type of
@@ -50,7 +54,7 @@ convert_headers_to_binary(List) ->
 	       
 fetch_page(Url) ->
     httpc:request(get, 
-		  {Url, [{"User-Agent", "ragno.erl/1.0"}]}, 
+		  {Url, [{"User-Agent", "ragno.erl/" ++ ?RAGNO_VER}]}, 
 		  [{ssl, [{verify, verify_none}]},
 		   {timeout, timer:seconds(8)},
 		   {autoredirect, false}
@@ -89,6 +93,8 @@ crawl_domain(Url, Options, Filename) when is_binary(Url) ->
     logger:debug("DEBUG: crawling ~p\n", [Url]),
     Data = case fetch_page_with_manual_redirect(Url) of
 	       {ok, FinalUrl, {_Resp, Headers, Body}} ->
+		   UrlMap = uri_string:parse(Url),
+		   Domain = maps:get(host, UrlMap),
 		   FilteredHeaders =  case proplists:lookup(remove_headers, Options) of
 					  {remove_headers, HeadersToBeDeleted} ->
 					      remove_headers(HeadersToBeDeleted, Headers);
@@ -104,7 +110,7 @@ crawl_domain(Url, Options, Filename) when is_binary(Url) ->
 				    end,
 		   InternalLinks =  case proplists:get_value(extract_samedomain_links, Options, false) of
 					true ->
-					    links_ext:filter_samedomain_links(Links, Url);
+					    links_ext:filter_same_domain_links(Links, Url);
 					_ ->
 					    []
 				    end,
@@ -117,13 +123,13 @@ crawl_domain(Url, Options, Filename) when is_binary(Url) ->
 
 		   ExternalDomains = case proplists:get_value(extract_external_domains, Options, false) of
 					 true ->
-					     links_ext:filter_external_links(UniqDomains, Url);
+					     links_ext:filter_external_domains(UniqDomains, Domain);
 					 _ ->
 					     []
 				     end,
 		   SubDomains = case proplists:get_value(extract_subdomains, Options, false) of
 				    true ->
-					links_ext:filter_subdomain_links(UniqDomains, Url);
+					links_ext:filter_sub_domains(UniqDomains, Domain);
 				    _ ->
 					[]
 				end,
@@ -141,11 +147,14 @@ crawl_domain(Url, Options, Filename) when is_binary(Url) ->
 			    end,
 		   logger:debug("Successfully crawled url ~p", [Url]),
 		   {ok, [{url, Url}, 
+			 {domain, Domain},
 			 {final_url, FinalUrl}, 
 			 {headers, convert_headers_to_binary(FilteredHeaders)}, 
 			 {external_links, ExternalLinks}, 
 			 {internal_links, InternalLinks}, 
 			 {external_domains, ExternalDomains},
+			 {ragno_ver, ?RAGNO_VER},
+			 {system_time, erlang:system_time(microsecond)},
 			 {social, Social},
 			 {sub_domains, SubDomains},
 			 {tags, Tags}]}
@@ -153,7 +162,7 @@ crawl_domain(Url, Options, Filename) when is_binary(Url) ->
 	       {error, Error} ->
 		   %% something went wrong
 		   logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
-		   {error, Error}
+		   {error, Url}
 	   end,
     case Type = proplists:get_value(save_to_file, Options, none) of
 	none ->
