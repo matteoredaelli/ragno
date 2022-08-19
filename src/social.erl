@@ -36,7 +36,8 @@ find_identities(Links) ->
 		  New = find_identity({IdentityType, Regex}, Links),
 		  New ++ Acc
 	  end,
-    lists:foldl(Fun, 
-		[], 
-		?SOCIAL_IDENTITIES).
+    Identities = lists:foldl(Fun, 
+			     [], 
+			     ?SOCIAL_IDENTITIES),
+    lists:usort(Identities).
 

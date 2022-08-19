@@ -89,4 +89,4 @@ find_tags(Header) ->
     KR = tagger:find_tags_from_key_regex(Header),
     KN = tagger:find_tags_from_key_name(Header),
     KVR = tagger:find_tags_from_key_value_regex(Header),
-    KR ++ KN ++ KVR.
+    lists:usort(KR ++ KN ++ KVR).

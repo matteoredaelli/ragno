@@ -20,7 +20,7 @@
 
 -include_lib("kernel/include/logger.hrl").
 
--define(RAGNO_VER, <<"0.1.0">>).
+-define(RAGNO_VER, <<"0.1.0-SNAPSHOT">>).
 
 -spec remove_headers(list(), list()) -> list().
 remove_headers(HeadersToBeRemoved, Headers) ->
@@ -95,6 +95,8 @@ crawl_domain(Url, Options, Filename) when is_binary(Url) ->
 	       {ok, FinalUrl, {_Resp, Headers, Body}} ->
 		   UrlMap = uri_string:parse(Url),
 		   Domain = maps:get(host, UrlMap),
+		   FinalUrlMap = uri_string:parse(FinalUrl),
+		   FinalDomain = maps:get(host, FinalUrlMap),
 		   FilteredHeaders =  case proplists:lookup(remove_headers, Options) of
 					  {remove_headers, HeadersToBeDeleted} ->
 					      remove_headers(HeadersToBeDeleted, Headers);
@@ -147,8 +149,9 @@ crawl_domain(Url, Options, Filename) when is_binary(Url) ->
 			    end,
 		   logger:debug("Successfully crawled url ~p", [Url]),
 		   {ok, [{url, Url}, 
+			 {final_url, FinalUrl},
 			 {domain, Domain},
-			 {final_url, FinalUrl}, 
+			 {final_domain, FinalDomain},
 			 {headers, convert_headers_to_binary(FilteredHeaders)}, 
 			 {external_links, ExternalLinks}, 
 			 {internal_links, InternalLinks}, 
