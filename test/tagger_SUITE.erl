@@ -35,6 +35,6 @@ find_tags_from_key_value_regex(_) ->
 find_tags(_) -> 
     [[cloud, aruba], 
      [server,<<"apache">>],
-     ['x-powered-by',<<"modphp">>],
-     [sw, varnish]
+     [sw, varnish],
+     ['x-powered-by',<<"modphp">>]
     ] = tagger:find_tags(?HEADERS).
