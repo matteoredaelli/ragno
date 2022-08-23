@@ -59,8 +59,9 @@ basic_checks(_) ->
     true  = links_ext:is_sub_domain(<<"camel.apache.org">>, <<"apache.org">>),
     true  = links_ext:is_sub_domain(<<"camel.apache.org">>, <<"www.apache.org">>),
     false = links_ext:is_sub_domain(<<"redaelli.tech">>, <<"redaelli.org">>),
-    true  = links_ext:is_external_domain(<<"redaelli.tech">>, <<"apache.org">>).
-
+    true  = links_ext:is_external_domain(<<"redaelli.tech">>, <<"apache.org">>),
+    false  = links_ext:is_external_domain(<<"www.redaelli.tech">>, <<"redaelli.tech">>),
+    false  = links_ext:is_external_domain(<<"redaelli.tech">>, <<"www.redaelli.tech">>).
 extract_domains(_) ->
     Domains = links_ext:extract_domains(?LINKS),
     Domains = lists:usort(?DOMAINS).

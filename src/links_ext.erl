@@ -31,11 +31,36 @@
 
 -include_lib("kernel/include/logger.hrl").
 
-%%-spec re_extract_links(string() | binary()) -> list().
+-spec binary_join(Separator :: binary(), List :: [binary()]) -> binary().
+binary_join(_Separator, []) ->
+    <<>>;
+binary_join(Separator, [H|T]) ->
+    lists:foldl(fun (Value, Acc) -> <<Acc/binary, Separator/binary, Value/binary>> end, H, T).
+
 re_extract_links(Text) ->
     re:run(Text,
 	   "<a href=\"(?P<A>[^\"]+)\"", 
 	   [{capture,['A'],list}, global]).
+
+-spec re_extract_regex_data(string() | binary(), string() | binary()) -> list().
+re_extract_regex_data(Text, Regex) ->
+    case re:run(Text,
+		Regex,
+		[{capture,['A'],binary}, global]) of
+	{match, [List|_]}
+	->
+	    List;
+	nomatch -> 
+	    []
+    end.
+
+-spec re_extract_all_regex_data(string() | binary(), list()) -> list().
+re_extract_all_regex_data(Text, RegexList) ->
+    lists:foldl(fun({Name, Regex}, Acc) -> 
+			[{Name, re_extract_regex_data(Text, Regex)}|Acc]
+		end,
+		[],
+		RegexList).
 
 -spec is_http_link(string() | binary()) -> boolean().
 is_http_link(Url) ->
@@ -73,10 +98,11 @@ is_external_link(Url, BaseHost) ->
     Host = maps:get(host, UrlMap),
     %%removing www
     BaseHostNoWWW = binary:replace(BaseHost, <<"www.">>, <<"">>),
+    HostNoWWW = binary:replace(Host, <<"www.">>, <<"">>),
     %% adding . 
     BaseHostWithDotNoWWW = erlang:iolist_to_binary([".", BaseHostNoWWW]),
     Host =/= BaseHost andalso 
-	Host =/= BaseHostNoWWW andalso
+	HostNoWWW =/= BaseHostNoWWW andalso
 	nomatch ==  string:find(Host, BaseHostWithDotNoWWW).
 
 -spec is_same_domain(string() | binary(), string() | binary()) -> boolean().

@@ -104,6 +104,11 @@ crawl_domain(Domain, Options, Filename) when is_binary(Domain) ->
 					  _ ->
 					      Headers
 				      end,
+		   RegexData =  case proplists:get_value(extract_regex_data, Options, false) of
+				    false -> [];
+				    RegexList ->
+					links_ext:re_extract_all_regex_data(Body, RegexList)
+				end,
 		   Links = links_ext:extract_links(Body, FinalUrl),
 		   ExternalLinks =  case proplists:get_value(extract_external_links, Options, false) orelse proplists:get_value(extract_social, Options, false) of
 					true ->
@@ -153,6 +158,7 @@ crawl_domain(Domain, Options, Filename) when is_binary(Domain) ->
 			 {final_url, FinalUrl},
 			 {domain, Domain},
 			 {final_domain, FinalDomain},
+			 {regex_data, RegexData},
 			 {headers, convert_headers_to_binary(FilteredHeaders)}, 
 			 {external_links, ExternalLinks}, 
 			 {internal_links, InternalLinks}, 
