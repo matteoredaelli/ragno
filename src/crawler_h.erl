@@ -11,7 +11,7 @@ init(Req0, Opts) ->
 
 maybe_echo(<<"POST">>, true, Req0) ->
 	{ok, PostVals, Req} = cowboy_req:read_urlencoded_body(Req0),
-	Echo = proplists:get_value(<<"urls">>, PostVals),
+	Echo = proplists:get_value(<<"domains">>, PostVals),
 	echo(Echo, Req);
 maybe_echo(<<"POST">>, false, Req) ->
 	cowboy_req:reply(400, [], <<"Missing body.">>, Req);
@@ -20,8 +20,8 @@ maybe_echo(_, _, Req) ->
 	cowboy_req:reply(405, Req).
 
 echo(undefined, Req) ->
-	cowboy_req:reply(400, [], <<"Missing urls parameter.">>, Req);
+	cowboy_req:reply(400, [], <<"Missing domains parameter.">>, Req);
 echo(Echo, Req) ->
-    Urls = re:split(Echo, " "),
-    crawler:crawl_domains(Urls),
+    Domains = re:split(Echo, " "),
+    crawler:crawl_domains(Domains),
     cowboy_req:reply(200, #{}, Echo, Req).
