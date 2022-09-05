@@ -141,6 +141,12 @@ crawl_domain(Domain, Options, Filename) when is_binary(Domain) ->
 				    _ ->
 					[]
 				end,
+		   case proplists:get_value(crawl_subdomains, Options, false) of
+		       true ->
+			   crawl_domains(SubDomains, Options, Filename);
+		       _ ->
+			   false
+		   end,	       
 		   Tags = case proplists:get_value(extract_tags, Options, false) of
 				     true ->
 					 tagger:find_tags(FilteredHeaders);
@@ -172,7 +178,7 @@ crawl_domain(Domain, Options, Filename) when is_binary(Domain) ->
 	       {error, Error} ->
 		   %% something went wrong
 		   logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
-		   {error, Url}
+		   {error, Domain}
 	   end,
     case Type = proplists:get_value(save_to_file, Options, none) of
 	none ->
