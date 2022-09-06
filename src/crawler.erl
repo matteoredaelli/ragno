@@ -94,87 +94,7 @@ crawl_domain(Domain, Options, Filename) when is_binary(Domain) ->
     Url = erlang:list_to_binary([<<"https://">>, Domain, <<"/">>]),
     Data = case fetch_page_with_manual_redirect(Url) of
 	       {ok, FinalUrl, {_Resp, Headers, Body}} ->
-		   UrlMap = uri_string:parse(Url),
-		   Domain = maps:get(host, UrlMap),
-		   FinalUrlMap = uri_string:parse(FinalUrl),
-		   FinalDomain = maps:get(host, FinalUrlMap),
-		   FilteredHeaders =  case proplists:lookup(remove_headers, Options) of
-					  {remove_headers, HeadersToBeDeleted} ->
-					      remove_headers(HeadersToBeDeleted, Headers);
-					  _ ->
-					      Headers
-				      end,
-		   RegexData =  case proplists:get_value(extract_regex_data, Options, false) of
-				    false -> [];
-				    RegexList ->
-					links_ext:re_extract_all_regex_data(Body, RegexList)
-				end,
-		   Links = links_ext:extract_links(Body, FinalUrl),
-		   ExternalLinks =  case proplists:get_value(extract_external_links, Options, false) orelse proplists:get_value(extract_social, Options, false) of
-					true ->
-					    links_ext:filter_external_links(Links, Url);
-					_ ->
-					    []
-				    end,
-		   InternalLinks =  case proplists:get_value(extract_samedomain_links, Options, false) of
-					true ->
-					    links_ext:filter_same_domain_links(Links, Url);
-					_ ->
-					    []
-				    end,
-		   UniqDomains = case proplists:get_value(extract_external_domains, Options, false) orelse  proplists:get_value(extract_subdomains, Options, false) of
-				     true ->
-					 links_ext:extract_domains(Links);
-				     _ ->
-					 []
-				 end,
-
-		   ExternalDomains = case proplists:get_value(extract_external_domains, Options, false) of
-					 true ->
-					     links_ext:filter_external_domains(UniqDomains, Domain);
-					 _ ->
-					     []
-				     end,
-		   SubDomains = case proplists:get_value(extract_subdomains, Options, false) of
-				    true ->
-					links_ext:filter_sub_domains(UniqDomains, Domain);
-				    _ ->
-					[]
-				end,
-		   case proplists:get_value(crawl_subdomains, Options, false) of
-		       true ->
-			   crawl_domains(SubDomains, Options, Filename);
-		       _ ->
-			   false
-		   end,	       
-		   Tags = case proplists:get_value(extract_tags, Options, false) of
-				     true ->
-					 tagger:find_tags(FilteredHeaders);
-				     _ ->
-					 []
-				 end,
-		   Social = case proplists:get_value(extract_social, Options, false) of
-				true ->
-				    social:find_identities(ExternalLinks);
-				_ ->
-				    []
-			    end,
-		   logger:debug("Successfully crawled url ~p", [Url]),
-		   {ok, [{url, Url}, 
-			 {final_url, FinalUrl},
-			 {domain, Domain},
-			 {final_domain, FinalDomain},
-			 {regex_data, RegexData},
-			 {headers, convert_headers_to_binary(FilteredHeaders)}, 
-			 {external_links, ExternalLinks}, 
-			 {internal_links, InternalLinks}, 
-			 {external_domains, ExternalDomains},
-			 {ragno_ver, ?RAGNO_VER},
-			 {system_time, erlang:system_time(microsecond)},
-			 {social, Social},
-			 {sub_domains, SubDomains},
-			 {tags, Tags}]}
-	     ;
+		   analyze_domain(Domain, Options, Filename, Url, {ok, FinalUrl, {_Resp, Headers, Body}});
 	       {error, Error} ->
 		   %% something went wrong
 		   logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
@@ -187,6 +107,93 @@ crawl_domain(Domain, Options, Filename) when is_binary(Domain) ->
 	    save_url_data(Filename, Data, Type)
     end,
     Data.
+
+analyze_domain(Domain, Options, Filename, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
+    UrlMap = uri_string:parse(Url),
+    Domain = maps:get(host, UrlMap),
+    FinalUrlMap = uri_string:parse(FinalUrl),
+    FinalDomain = maps:get(host, FinalUrlMap),
+    FilteredHeaders =  case proplists:lookup(remove_headers, Options) of
+			   {remove_headers, HeadersToBeDeleted} ->
+			       remove_headers(HeadersToBeDeleted, Headers);
+			   _ ->
+			       Headers
+		       end,
+    RegexData =  case proplists:get_value(extract_regex_data, Options, false) of
+		     false -> [];
+		     RegexList ->
+			 links_ext:re_extract_all_regex_data(Body, RegexList)
+		 end,
+    Links = links_ext:extract_links(Body, FinalUrl),
+    ExternalLinks =  case proplists:get_value(extract_external_links, Options, false) orelse 
+			 proplists:get_value(extract_social, Options, false) of
+			 true ->
+			     links_ext:filter_external_links(Links, Url);
+			 _ ->
+			     []
+		     end,
+    InternalLinks =  case proplists:get_value(extract_samedomain_links, Options, false) of
+			 true ->
+			     links_ext:filter_same_domain_links(Links, Url);
+			 _ ->
+			     []
+		     end,
+    UniqDomains = case proplists:get_value(extract_external_domains, Options, false) orelse 
+		      proplists:get_value(extract_subdomains, Options, false) of
+		      true ->
+			  links_ext:extract_domains(Links);
+		      _ ->
+			  []
+		  end,
+    
+    ExternalDomains = case proplists:get_value(extract_external_domains, Options, false) of
+			  true ->
+			      links_ext:filter_external_domains(UniqDomains, Domain);
+			  _ ->
+			      []
+		      end,
+    SubDomains = case proplists:get_value(extract_subdomains, Options, false) of
+		     true ->
+			 links_ext:filter_sub_domains(UniqDomains, Domain);
+		     _ ->
+			 []
+		 end,
+    %% TODO: www. domains should be skipped in order to avoid duplicates
+    %% or adding a cache for traking visited domaibs
+
+    case proplists:get_value(crawl_subdomains, Options, false) of
+	true ->
+	    crawl_domains(SubDomains, Options, Filename);
+	_ ->
+	    false
+    end,	       
+    Tags = case proplists:get_value(extract_tags, Options, false) of
+	       true ->
+		   tagger:find_tags(FilteredHeaders);
+	       _ ->
+		   []
+	   end,
+    Social = case proplists:get_value(extract_social, Options, false) of
+		 true ->
+		     social:find_identities(ExternalLinks);
+		 _ ->
+		     []
+	     end,
+    logger:debug("Successfully crawled url ~p", [Url]),
+    {ok, [{url, Url}, 
+	  {final_url, FinalUrl},
+	  {domain, Domain},
+	  {final_domain, FinalDomain},
+	  {regex_data, RegexData},
+	  {headers, convert_headers_to_binary(FilteredHeaders)}, 
+	  {external_links, ExternalLinks}, 
+	  {internal_links, InternalLinks}, 
+	  {external_domains, ExternalDomains},
+	  {ragno_ver, ?RAGNO_VER},
+	  {system_time, erlang:system_time(microsecond)},
+	  {social, Social},
+	  {sub_domains, SubDomains},
+	  {tags, Tags}]}.
 
 crawl_domains(Domains) ->
     {ok, DataDir} = application:get_env(ragno, crawler_data_directory),
