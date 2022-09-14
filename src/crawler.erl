@@ -77,14 +77,16 @@ fetch_page_with_manual_redirect(URL) when is_binary(URL) ->
 	Error -> Error
     end.
 
-crawl_domain_if_new(Domain, Options, Filename) when is_list(Domain) -> 
-   crawl_domain_if_new(list_to_binary(Domain), Options, Filename);
-crawl_domain_if_new(Domain, Options, Filename) when is_binary(Domain) ->
-    case ets:lookup(visited_domains, Domain) of
-	[] -> crawl_domain(Domain, Options, Filename);
-	[Domain] ->
-	    logger:debug("INFO: Skipping domain ~p because it was already visited\n", [Domain])
-    end.
+
+%% crawl_domain(Url) when is_list(Url) -> 
+%%     {ok, Options} = application:get_env(ragno, crawler_default_options),
+%%     Id = erlang:system_time(microsecond),
+%%     crawl_domain(list_to_binary(Url), Id, Options);
+%% crawl_domain(Url) when is_binary(Url) ->
+%%     {ok, Options} = application:get_env(ragno, crawler_default_options),
+%%     Id = erlang:system_time(microsecond),
+%%     crawl_domain(Url, Id, Options).
+
 crawl_domain(Domain, Options, Filename) when is_list(Domain) -> 
    crawl_domain(list_to_binary(Domain), Options, Filename);
 crawl_domain(Domain, Options, Filename) when is_binary(Domain) ->
@@ -102,11 +104,7 @@ crawl_domain(Domain, Options, Filename) when is_binary(Domain) ->
 	none ->
 	    true;
 	Type ->
-	    save_url_data(Filename, Data, Type),
-	    ets:insert(visited_domains, {Domain}),
-	    FinalDomain = maps:get(Data, final_domain, dummy),
-	    %% in order to avoid crawling twice redirected domains like example.com and www.example.com
-	    ets:insert(visited_domains, {FinalDomain})
+	    save_url_data(Filename, Data, Type)
     end,
     Data.
 
@@ -160,6 +158,8 @@ analyze_domain(Domain, Options, Filename, Url, {ok, FinalUrl, {_Resp, Headers, B
 		     _ ->
 			 []
 		 end,
+    %% TODO: www. domains should be skipped in order to avoid duplicates
+    %% or adding a cache for traking visited domaibs
 
     case proplists:get_value(crawl_subdomains, Options, false) of
 	true ->
@@ -205,7 +205,7 @@ crawl_domains(Domains) ->
 
 crawl_domains(Domains, Options, Filename) ->
     lists:foreach(fun(Domain) -> wpool:cast(crawler_pool, 
-					    {crawler, crawl_domain_if_new, [Domain, Options, Filename]}) 
+					    {crawler, crawl_domain, [Domain, Options, Filename]}) 
 		  end, 
 		  Domains).
 
