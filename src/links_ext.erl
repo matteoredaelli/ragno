@@ -39,7 +39,9 @@ binary_join(Separator, [H|T]) ->
 
 re_extract_links(Text) ->
     re:run(Text,
-	   "<a href=\"(?P<A>[^\"]+)\"", 
+%%	   "<a href=\"(?P<A>[^\"]+)\"", 
+%% blog.redaelli.org contains links like   href=https:/xxx
+	   "href=\"?(?P<A>[^\">]+)\"?>", 
 	   [{capture,['A'],list}, global]).
 
 -spec re_extract_regex_data(string() | binary(), string() | binary()) -> list().

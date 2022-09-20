@@ -77,15 +77,15 @@ fetch_page_with_manual_redirect(URL) when is_binary(URL) ->
 	Error -> Error
     end.
 
-
-%% crawl_domain(Url) when is_list(Url) -> 
-%%     {ok, Options} = application:get_env(ragno, crawler_default_options),
-%%     Id = erlang:system_time(microsecond),
-%%     crawl_domain(list_to_binary(Url), Id, Options);
-%% crawl_domain(Url) when is_binary(Url) ->
-%%     {ok, Options} = application:get_env(ragno, crawler_default_options),
-%%     Id = erlang:system_time(microsecond),
-%%     crawl_domain(Url, Id, Options).
+get_final_url(Url) ->
+    case fetch_page_with_manual_redirect(Url) of
+	       {ok, FinalUrl, _} ->
+		   FinalUrl;
+	       {error, Error} ->
+		   %% something went wrong
+		   logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
+		   Url
+    end.
 
 crawl_domain(Domain, Options, Filename) when is_list(Domain) -> 
    crawl_domain(list_to_binary(Domain), Options, Filename);
@@ -124,7 +124,14 @@ analyze_domain(Domain, Options, Filename, Url, {ok, FinalUrl, {_Resp, Headers, B
 		     RegexList ->
 			 links_ext:re_extract_all_regex_data(Body, RegexList)
 		 end,
-    Links = links_ext:extract_links(Body, FinalUrl),
+    OrigLinks = links_ext:extract_links(Body, FinalUrl),
+    Links = case proplists:get_value(final_links, Options, false) of
+		true ->
+		    lists:map(fun get_final_url/1, 
+				OrigLinks);
+		_ ->
+		    OrigLinks
+	    end,    
     ExternalLinks =  case proplists:get_value(extract_external_links, Options, false) orelse 
 			 proplists:get_value(extract_social, Options, false) of
 			 true ->
