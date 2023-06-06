@@ -9,6 +9,7 @@
 
 -export([base_url/1,
 	 base_urls/1,
+	 binary_join/2,
 	 extract_domains/1,
 	 extract_links/2,
 	 filter_external_domains/2,
@@ -24,10 +25,9 @@
 	 is_sub_domain/2,
 	 is_sub_domain_link/2,
 	 is_http_link/1,
-	 re_extract_links/1
+	 re_extract_links/1,
+	 re_extract_all_regex_data/2
 	]).
-
--compile(export_all).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -39,9 +39,10 @@ binary_join(Separator, [H|T]) ->
 
 re_extract_links(Text) ->
     re:run(Text,
-%%	   "<a href=\"(?P<A>[^\"]+)\"", 
-%% blog.redaelli.org contains links like   href=https:/xxx
-	   "href=\"?(?P<A>[^\">]+)\"?>", 
+%%	   " href=\"(?P<A>[^\"]+)\"",
+%% blog.redaelli.org contains links like href=https:/xxx
+%% <a class="youtubeSocial" href="https://www.youtube.com/user/pirelli" rel="nofollow">
+	   " href=\"?(?P<A>[^\">]+)\"? ?.*>", 
 	   [{capture,['A'],list}, global]).
 
 -spec re_extract_regex_data(string() | binary(), string() | binary()) -> list().

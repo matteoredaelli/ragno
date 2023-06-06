@@ -8,7 +8,7 @@
 -module(tagger).
 -export([find_tags/1]).
 
--compile(export_all).
+%%-compile(export_all).
 
 -define(TAGS_FROM_KEY_REGEX, [ 
 			       { [cdn, akamai], "x-akamai-"},
@@ -37,6 +37,7 @@
 				     { [cdn, cloudfront], "x-cache", "cloudfront"},
 				     { [cdn, cloudfront], "via", "cloudfront"},
 				     { [cdn, cloudflare], "server", "cloudflare"},
+				     { [sw, f5], "set-cookie", "bigip"},
 				     { [sw, varnish], "via", "varnish"}
 				   ]).
 find_tags_from_key_name(Header) ->
@@ -55,7 +56,7 @@ find_tags_from_key_regex(Header) ->
     Keys = proplists:get_keys(Header),
     String = string:join(Keys, " "),
     Fun = fun({Tag,Regex}, Acc) -> 
-		  case re:run(String, Regex) of
+		  case re:run(String, Regex, [caseless]) of
 		      {match, _} ->
 			  [Tag|Acc];
 		      nomatch ->
@@ -73,7 +74,7 @@ find_tags_from_key_value_regex(Header) ->
 		      undefined -> Acc;
 		      Value ->
 			  %% search regex
-			  case re:run(Value, Regex) of
+			  case re:run(Value, Regex, [caseless]) of
 			      {match, _} ->
 				  [Tag|Acc];
 			      nomatch ->
@@ -86,7 +87,7 @@ find_tags_from_key_value_regex(Header) ->
 		?TAGS_FROM_KEY_VALUE_REGEX).
 
 find_tags(Header) ->
-    KR = tagger:find_tags_from_key_regex(Header),
-    KN = tagger:find_tags_from_key_name(Header),
-    KVR = tagger:find_tags_from_key_value_regex(Header),
+    KR = find_tags_from_key_regex(Header),
+    KN = find_tags_from_key_name(Header),
+    KVR = find_tags_from_key_value_regex(Header),
     lists:usort(KR ++ KN ++ KVR).

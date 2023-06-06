@@ -18,3 +18,10 @@ _rel/ragno_release/bin/ragno_release foreground -run crawler crawl_domains www.l
 Rest interface:
 
 curl -d domains="www.apache.org,www.libero.it" http://localhost:8080
+
+## Extract unvisited domains
+
+```bash
+cd _rel/ragno_release/data
+spark-sql -i ../../../utils/views.sql -f ../../../utils/extract_new_domains.sql
+```
