@@ -7,28 +7,15 @@
 
 -module(crawler).
 
--export([crawl_domain/1,
-	 crawl_domain/2,
-	 crawl_domains/1,
-	 crawl_domains/2,
-	 crawl_domains_string/1,
-	 crawl_domains_string/2
-	]).
+-export([ crawl_domain/2]).
 
 -include_lib("kernel/include/logger.hrl").
--include_lib("crawler.hrl").
+
 
 -define(HTTP_DEFAULT_USER_AGENT, <<"ragno.erl/1.0-SNAPSHOT">>).
 
 -define(HTTP_DEFAULT_REQUEST_TIMEOUT, 5).
 
-ragno_get_options() ->
-    case application:get_env(ragno, crawler_default_options) of
-	{ok, Options} ->
-	    Options;
-	_Else ->
-	    ?RAGNO_OPTS
-    end.
 
 -spec remove_headers(list(), list()) -> list().
 remove_headers(HeadersToBeRemoved, Headers) ->
@@ -162,12 +149,6 @@ analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
 	  {sub_domains, SubDomains},
 	  {tags, Tags}]}.
 
-crawl_domain(Domain) when is_list(Domain) -> 
-    Options = ragno_get_options(),
-    crawl_domain(list_to_binary(Domain), Options);
-crawl_domain(Domain) when is_binary(Domain) -> 
-    Options = ragno_get_options(),
-    crawl_domain(Domain, Options).
 
 crawl_domain(Domain, Options) when is_list(Domain) -> 
    crawl_domain(list_to_binary(Domain), Options);
@@ -185,43 +166,3 @@ crawl_domain(Domain, Options) when is_binary(Domain) ->
 	    logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
 	    {error, Domain}
     end.
-
-
-any_running_workers(Pool) ->
-    Stats = wpool:stats(Pool),
-    Tasks = lists:usort([proplists:get_value(task, WS)
-			 || {_, WS} <- proplists:get_value(workers, Stats)]),
-    case length(lists:delete(undefined, Tasks)) of
-	0 ->
-	    false;
-	_ ->
-	    true
-    end.
-
-wait_for(Pool) ->
-    case any_running_workers(Pool) of
-	false ->
-	    ok;
-	true ->
-	    timer:sleep(5000),
-	    wait_for(Pool)
-    end.
-
-crawl_domains(Domains) -> 
-    Options = ragno_get_options(),
-    crawl_domains(Domains, Options).
-
-crawl_domains(Domains, Options) ->
-    Pool = crawler_pool,
-    [wpool:cast(Pool,
-		{crawler, crawl_domain, [Domain, Options]})
-     || Domain <- Domains],
-    wait_for(Pool).
-
-crawl_domains_string([DomainsString]) ->
-    Options = ragno_get_options(),
-    crawl_domains_string(DomainsString, Options).
-
-crawl_domains_string(DomainsString, Options) ->
-    Domains = re:split(DomainsString, ","),
-    crawl_domains(Domains, Options).
