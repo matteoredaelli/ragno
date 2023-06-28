@@ -10,7 +10,7 @@
 -export([find_identities/1]).
 
 -define(SOCIAL_IDENTITIES, [ 
-			     {youtube,   <<"^https://www.youtube.com/(?P<A>[^\?]+$)">>},
+			     {youtube,   <<"^https://www.youtube.com/user/(?P<A>[^\?]+)">>},
 			     {twitter,   <<"^https://twitter.com/(?P<A>.+)$">>},
 			     {linkedin,  <<"^https://www.linkedin.com/(?P<A>.+)$">>},
 			     {instagram, <<"^https://www.instagram.com/(?P<A>[^/]+)/?$">>},

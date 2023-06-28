@@ -7,7 +7,7 @@
 
 -module(crawler).
 
--export([ crawl_domain/2]).
+-export([crawl_domain/2]).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -16,6 +16,29 @@
 
 -define(HTTP_DEFAULT_REQUEST_TIMEOUT, 5).
 
+-spec url_filename(string()) -> string().
+url_filename(Url) ->
+    UrlMap = uri_string:parse(Url),
+    Host = maps:get(host, UrlMap),
+    List = re:split(Host, "\\.", [{return, list}]),
+    [Dir1, [C2|_Dir2]|_] = lists:reverse(List),
+    Dir = io_lib:format("data/~s/~s/", [Dir1, [C2]]),
+    ok = filelib:ensure_dir(Dir),
+    Filename = re:replace(Url, "/", "", [{return, binary}, global]),
+    io_lib:format("~s~s", [Dir, Filename]).
+
+-spec save_url_data(string() | binary(), list(), atom()) -> ok | {error, atom()}.
+save_url_data(Url, Data, Type) ->
+    Filename = url_filename(Url),
+    String = case Type of
+		 json ->
+		     jsone:encode(Data);
+		 erl ->
+		     io_lib:format("~p.\n", [Data]);
+		 binary ->
+		     erlang:term_to_binary(Data)
+	     end,
+    file:write_file(Filename, String).
 
 -spec remove_headers(list(), list()) -> list().
 remove_headers(HeadersToBeRemoved, Headers) ->
@@ -135,7 +158,7 @@ analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
 		     []
 	     end,
     logger:debug("Successfully crawled url ~p", [Url]),
-    {ok, [{url, Url}, 
+    Data = [{url, Url}, 
 	  {final_url, FinalUrl},
 	  {domain, Domain},
 	  {final_domain, FinalDomain},
@@ -147,8 +170,14 @@ analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
 	  {system_time, erlang:system_time(microsecond)},
 	  {social, Social},
 	  {sub_domains, SubDomains},
-	  {tags, Tags}]}.
-
+	  {tags, Tags}],
+    case Type = proplists:get_value(save_to_file, Options, none) of
+	none ->
+	    true;
+	Type ->
+	    save_url_data(Url, Data, Type)
+    end,
+    {ok , Data}.
 
 crawl_domain(Domain, Options) when is_list(Domain) -> 
    crawl_domain(list_to_binary(Domain), Options);
@@ -159,7 +188,7 @@ crawl_domain(Domain, Options) when is_binary(Domain) ->
     case fetch_page_with_manual_redirect(Url, get, Timeout) of
 	{ok, FinalUrl, {_Resp, Headers, Body}} ->
 	    {ok, Data} = analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}),
-	    io:fwrite(jsone:encode(Data)),
+	    %% io:fwrite(jsone:encode(Data)),
 	    {ok, Data};
 	{error, Error} ->
 	    %% something went wrong
