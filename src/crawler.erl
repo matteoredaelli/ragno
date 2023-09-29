@@ -56,6 +56,8 @@ fetch_page(Url, Method, Timeout) ->
 		   {timeout, timer:seconds(Timeout)},
 		   {autoredirect, false}
 		  ], 
+		  %% TODO
+		  %% "head" request is often blocked: use get with the option {stream, {self, once}}
 		  [{body_format, binary}]).
 
 fetch_page_with_manual_redirect(Url, Method, Timeout) when is_list(Url) -> 
@@ -108,20 +110,7 @@ analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
 			      OrigLinks);
 		_ ->
 		    OrigLinks
-	    end,    
-    ExternalLinks =  case proplists:get_value(extract_external_links, Options, false) orelse 
-			 proplists:get_value(extract_social, Options, false) of
-			 true ->
-			     links_ext:filter_external_links(Links, Url);
-			 _ ->
-			     []
-		     end,
-    InternalLinks =  case proplists:get_value(extract_samedomain_links, Options, false) of
-			 true ->
-			     links_ext:filter_same_domain_links(Links, Url);
-			 _ ->
-			     []
-		     end,
+	    end,  
     UniqDomains = case proplists:get_value(extract_external_domains, Options, false) orelse 
 		      proplists:get_value(extract_subdomains, Options, false) of
 		      true ->
@@ -129,19 +118,7 @@ analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
 		      _ ->
 			  []
 		  end,
-    
-    ExternalDomains = case proplists:get_value(extract_external_domains, Options, false) of
-			  true ->
-			      links_ext:filter_external_domains(UniqDomains, Domain);
-			  _ ->
-			      []
-		      end,
-    SubDomains = case proplists:get_value(extract_subdomains, Options, false) of
-		     true ->
-			 links_ext:filter_sub_domains(UniqDomains, Domain);
-		     _ ->
-			 []
-		 end,
+
     %% TODO: www. domains should be skipped in order to avoid duplicates
     %% or adding a cache for traking visited domaibs
 	       
@@ -153,7 +130,7 @@ analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
 	   end,
     Social = case proplists:get_value(extract_social, Options, false) of
 		 true ->
-		     social:find_identities(ExternalLinks);
+		     social:find_identities(Links);
 		 _ ->
 		     []
 	     end,
@@ -164,12 +141,10 @@ analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
 	  {final_domain, FinalDomain},
 	  {regex_data, RegexData},
 	  {headers, convert_headers_to_binary(FilteredHeaders)}, 
-	  {external_links, ExternalLinks}, 
-	  {internal_links, InternalLinks}, 
-	  {external_domains, ExternalDomains},
+	  {links, Links}, 
+	  {domains, UniqDomains},
 	  {system_time, erlang:system_time(microsecond)},
 	  {social, Social},
-	  {sub_domains, SubDomains},
 	  {tags, Tags}],
     case Type = proplists:get_value(save_to_file, Options, none) of
 	none ->
