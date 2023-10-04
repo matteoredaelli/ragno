@@ -4,28 +4,19 @@
 -export([start/2]).
 -export([stop/1]).
 -export([crawl_domains_string/1]).
--export([crawl_domains_string/2]).
+-export([crawl_domains_string/3]).
 
 -include_lib("crawler.hrl").
 
 start(_Type, _Args) ->
     {ok, Workers} = application:get_env(ragno, pool_workers),
     wpool:start_sup_pool(crawler_pool, [{workers, Workers}]),
-    %% {ok, HttpcOptions} = application:get_env(httpc_options),
+    %% {ok, HttpcOptions} = application:get_env(http_options),
     %%httpc:set_options(HttpcOptions),
     {ok, self()}.
 
 stop(_State) ->
 	ok.
-
-
-ragno_get_options() ->
-    case application:get_env(ragno, crawler_default_options) of
-	{ok, Options} ->
-	    Options;
-	_Else ->
-	    ?RAGNO_OPTS
-    end.
 
 any_running_workers(Pool) ->
     Stats = wpool:stats(Pool),
@@ -47,10 +38,10 @@ wait_for_and_halt(Pool) ->
 	    wait_for_and_halt(Pool)
     end.
 
-crawl_domains(Domains, Options, Halt) ->
+crawl_domains(Domains, HttpOptions, CrawlerOptions, Halt) ->
     Pool = crawler_pool,
     [wpool:cast(Pool,
-		{crawler, crawl_domain, [Domain, Options]})
+		{crawler, crawl_domain, [Domain, HttpOptions, CrawlerOptions]})
      || Domain <- Domains],
     case Halt of
 	true ->
@@ -60,9 +51,10 @@ crawl_domains(Domains, Options, Halt) ->
     end.
 
 crawl_domains_string([DomainsString]) ->
-    Options = ragno_get_options(),
-    crawl_domains_string([DomainsString], Options).
+    {ok, HttpOptions} = application:get_env(ragno, http_options),
+    {ok, CrawlerOptions} = application:get_env(ragno, crawler_default_options),
+    crawl_domains_string([DomainsString], HttpOptions, CrawlerOptions).
 
-crawl_domains_string([DomainsString], Options) ->
+crawl_domains_string([DomainsString], HttpOptions, CrawlerOptions) ->
     Domains = re:split(DomainsString, ","),
-    crawl_domains(Domains, Options, true).
+    crawl_domains(Domains, HttpOptions, CrawlerOptions, true).

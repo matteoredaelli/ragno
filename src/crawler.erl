@@ -7,7 +7,7 @@
 
 -module(crawler).
 
--export([crawl_domain/2]).
+-export([crawl_domain/3]).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -49,35 +49,36 @@ convert_headers_to_binary(List) ->
     lists:map(fun({Key, Val}) -> [list_to_binary(Key), list_to_binary(Val)] end,
 	      List).
 
-fetch_page(Url, Method, Timeout) ->
+fetch_page(Url, Method, HttpOptions) ->
     httpc:request(Method, 
-		  {Url, [{"User-Agent", ?HTTP_DEFAULT_USER_AGENT}]}, 
-		  [{ssl, [{verify, verify_none}]},
-		   {timeout, timer:seconds(Timeout)},
-		   {autoredirect, false}
-		  ], 
+		  {Url, [{"User-Agent", ?HTTP_DEFAULT_USER_AGENT}]},
+		   HttpOptions,
+		   %%[{ssl, [{verify, verify_none}]},
+		   %%{timeout, timer:seconds(Timeout)},
+		   %%{autoredirect, false}
+		  %%], 
 		  %% TODO
 		  %% "head" request is often blocked: use get with the option {stream, {self, once}}
 		  [{body_format, binary}]).
 
-fetch_page_with_manual_redirect(Url, Method, Timeout) when is_list(Url) -> 
-    fetch_page_with_manual_redirect(list_to_binary(Url), Method, Timeout);
-fetch_page_with_manual_redirect(URL, Method, Timeout) when is_binary(URL) ->
-    case fetch_page(URL, Method, Timeout) of
+fetch_page_with_manual_redirect(Url, Method, HttpOptions) when is_list(Url) -> 
+    fetch_page_with_manual_redirect(list_to_binary(Url), Method, HttpOptions);
+fetch_page_with_manual_redirect(URL, Method, HttpOptions) when is_binary(URL) ->
+    case fetch_page(URL, Method, HttpOptions) of
 	{ok, {{HttpVersion, Code, Reason}, Headers, Body}}  when Code >= 200, Code < 299  ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, Body}};
 	{ok, {{_, Code, _}, Headers, _}}  when Code < 310 , Code >= 300 ->
 	    NewURL=proplists:get_value("location", Headers),
 	    %% the url  in Location can be relative (ex. mozilla.org)
 	    NewAbsURL = uri_string:resolve(NewURL, URL),
-	    fetch_page_with_manual_redirect(list_to_binary(NewAbsURL), Method, Timeout);
+	    fetch_page_with_manual_redirect(list_to_binary(NewAbsURL), Method, HttpOptions);
 	{ok, {{HttpVersion, Code, Reason}, Headers, _}}  when Code >= 400 ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, ""}};
 	Error -> Error
     end.
 
-get_final_url(Url, Timeout) ->
-    case fetch_page_with_manual_redirect(Url, head, Timeout) of
+get_final_url(Url, HttpOptions) ->
+    case fetch_page_with_manual_redirect(Url, head, HttpOptions) of
 	       {ok, FinalUrl, _} ->
 		   FinalUrl;
 	       {error, Error} ->
@@ -86,7 +87,7 @@ get_final_url(Url, Timeout) ->
 		   Url
     end.
 
-analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
+analyze_domain(Domain, HttpOptions, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
     UrlMap = uri_string:parse(Url),
     Domain = maps:get(host, UrlMap),
     FinalUrlMap = uri_string:parse(FinalUrl),
@@ -105,8 +106,7 @@ analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
     OrigLinks = links_ext:extract_links(Body, FinalUrl),
     Links = case proplists:get_value(final_links, Options, false) of
 		true ->
-		    Timeout = proplists:get_value(http_request_timeout, Options, ?HTTP_DEFAULT_REQUEST_TIMEOUT),
-		    lists:map(fun(U) -> get_final_url(U, Timeout) end, 
+		    lists:map(fun(U) -> get_final_url(U, HttpOptions) end, 
 			      OrigLinks);
 		_ ->
 		    OrigLinks
@@ -154,15 +154,14 @@ analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
     end,
     {ok , Data}.
 
-crawl_domain(Domain, Options) when is_list(Domain) -> 
-   crawl_domain(list_to_binary(Domain), Options);
-crawl_domain(Domain, Options) when is_binary(Domain) ->
+crawl_domain(Domain, HttpOptions, CrawlerOptions) when is_list(Domain) -> 
+   crawl_domain(list_to_binary(Domain), HttpOptions, CrawlerOptions);
+crawl_domain(Domain, HttpOptions, CrawlerOptions) when is_binary(Domain) ->
     logger:debug("DEBUG: crawling ~p\n", [Domain]),
     Url = erlang:list_to_binary([<<"https://">>, Domain, <<"/">>]),
-    Timeout = proplists:get_value(http_request_timeout, Options, ?HTTP_DEFAULT_REQUEST_TIMEOUT),
-    case fetch_page_with_manual_redirect(Url, get, Timeout) of
+    case fetch_page_with_manual_redirect(Url, get, HttpOptions) of
 	{ok, FinalUrl, {_Resp, Headers, Body}} ->
-	    {ok, Data} = analyze_domain(Domain, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}),
+	    {ok, Data} = analyze_domain(Domain, HttpOptions,CrawlerOptions, Url, {ok, FinalUrl, {_Resp, Headers, Body}}),
 	    %% io:fwrite(jsone:encode(Data)),
 	    {ok, Data};
 	{error, Error} ->
