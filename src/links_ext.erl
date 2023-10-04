@@ -10,6 +10,7 @@
 -export([base_url/1,
 	 base_urls/1,
 	 binary_join/2,
+	 extract_domain/1,
 	 extract_domains/1,
 	 extract_links/2,
 	 filter_external_links/2,

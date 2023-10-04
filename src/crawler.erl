@@ -65,13 +65,21 @@ fetch_page_with_manual_redirect(Url, Method, HttpOptions) when is_list(Url) ->
     fetch_page_with_manual_redirect(list_to_binary(Url), Method, HttpOptions);
 fetch_page_with_manual_redirect(URL, Method, HttpOptions) when is_binary(URL) ->
     case fetch_page(URL, Method, HttpOptions) of
-	{ok, {{HttpVersion, Code, Reason}, Headers, Body}}  when Code >= 200, Code < 299  ->
+	{ok, {{HttpVersion, Code, Reason}, Headers, Body}} when Code >= 200, Code < 299  ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, Body}};
-	{ok, {{_, Code, _}, Headers, _}}  when Code < 310 , Code >= 300 ->
+	{ok, {{HttpVersion, Code, Reason}, Headers, Body}}  when Code < 310 , Code >= 300 ->
 	    NewURL=proplists:get_value("location", Headers),
 	    %% the url  in Location can be relative (ex. mozilla.org)
 	    NewAbsURL = uri_string:resolve(NewURL, URL),
-	    fetch_page_with_manual_redirect(list_to_binary(NewAbsURL), Method, HttpOptions);
+	    %% TODO: follow teh redirect only if the domain doesn't change
+	    URLDom = links_ext:extract_domain(URL),
+	    NewAbsURLDom = links_ext:extract_domain(NewAbsURL),
+	    case domains_ext:is_same_domain(URLDom, NewAbsURLDom) of 
+		true ->
+		    fetch_page_with_manual_redirect(list_to_binary(NewAbsURL), Method, HttpOptions);
+		false ->
+		    {ok, URL, {{HttpVersion, Code, Reason}, Headers, Body}}
+	    end;
 	{ok, {{HttpVersion, Code, Reason}, Headers, _}}  when Code >= 400 ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, ""}};
 	Error -> Error
@@ -161,8 +169,8 @@ crawl_domain(Domain, HttpOptions, CrawlerOptions) when is_binary(Domain) ->
     logger:debug("DEBUG: crawling ~p\n", [Domain]),
     Url = erlang:list_to_binary([<<"https://">>, Domain, <<"/">>]),
     case fetch_page_with_manual_redirect(Url, get, HttpOptions) of
-	{ok, FinalUrl, {_Resp, Headers, Body}} ->
-	    {ok, Data} = analyze_domain(Domain, HttpOptions,CrawlerOptions, Url, {ok, FinalUrl, {_Resp, Headers, Body}}),
+	{ok, FinalUrl, {Resp, Headers, Body}} ->
+	    {ok, Data} = analyze_domain(Domain, HttpOptions,CrawlerOptions, Url, {ok, FinalUrl, {Resp, Headers, Body}}),
 	    %% io:fwrite(jsone:encode(Data)),
 	    {ok, Data};
 	{error, Error} ->
