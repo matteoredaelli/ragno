@@ -12,17 +12,10 @@
 	 binary_join/2,
 	 extract_domains/1,
 	 extract_links/2,
-	 filter_external_domains/2,
 	 filter_external_links/2,
-	 filter_same_domains/2,
-	 filter_same_domain_links/2,
-	 filter_sub_domains/2,
 	 filter_sub_domain_links/2,
-	 is_external_domain/2,
 	 is_external_link/2,
-	 is_same_domain/2,
 	 is_same_domain_link/2,
-	 is_sub_domain/2,
 	 is_sub_domain_link/2,
 	 is_http_link/1,
 	 re_extract_links/1,
@@ -85,16 +78,6 @@ extract_links(Text, BaseUrl) ->
 	_ -> []
     end.
 
--spec is_external_domain(string() | binary(), string() | binary()) -> boolean().
-is_external_domain(Domain1, Domain2) ->
-    %%removing www
-    Domain2NoWWW = binary:replace(Domain2, <<"www.">>, <<"">>),
-    %% adding . 
-    Domain2WithDotNoWWW = erlang:iolist_to_binary([".", Domain2NoWWW]),
-    Domain1 =/= Domain2 andalso 
-	Domain1 =/= Domain2NoWWW andalso
-	nomatch ==  string:find(Domain1, Domain2WithDotNoWWW).
-
 -spec is_external_link(string() | binary(), string() | binary()) -> boolean().
 is_external_link(Url, BaseHost) ->
     UrlMap = uri_string:parse(Url),
@@ -108,23 +91,9 @@ is_external_link(Url, BaseHost) ->
 	HostNoWWW =/= BaseHostNoWWW andalso
 	nomatch ==  string:find(Host, BaseHostWithDotNoWWW).
 
--spec is_same_domain(string() | binary(), string() | binary()) -> boolean().
-is_same_domain(Domain1, Domain2) ->
-   Domain1 == Domain2.
-
 -spec is_same_domain_link(string() | binary(), string() | binary()) -> boolean().
 is_same_domain_link(Url, BaseUrl) ->
     nomatch =/= string:prefix(Url, BaseUrl).
-
--spec is_sub_domain(string() | binary(), string() | binary()) -> boolean().
-is_sub_domain(Domain1, Domain2) ->
-    %%removing www
-    Domain2NoWWW = binary:replace(Domain2, <<"www.">>, <<"">>),
-    %% adding . 
-    Domain2WithDotNoWWW = erlang:iolist_to_binary([".", Domain2NoWWW]),
-    Domain1 == Domain2 orelse 
-	Domain1 == Domain2NoWWW orelse
-	nomatch =/=  string:find(Domain1, Domain2WithDotNoWWW).
 
 -spec is_sub_domain_link(string() | binary(), string() | binary()) -> boolean().
 is_sub_domain_link(Url, BaseHost) ->
@@ -138,13 +107,6 @@ is_sub_domain_link(Url, BaseHost) ->
 	Host == BaseHostNoWWW orelse
 	nomatch =/=  string:find(Host, BaseHostWithDotNoWWW).
 
--spec filter_external_domains(list(), string() | binary()) -> list().
-filter_external_domains(Domains, Domain) ->
-    lists:filter(fun(D) ->
-			 is_external_domain(D, Domain)
-		 end, 
-		 Domains).
-
 -spec filter_external_links(list(), string() | binary()) -> list().
 filter_external_links(Urls, BaseUrl) ->
     BaseUrlMap = uri_string:parse(BaseUrl),
@@ -154,26 +116,12 @@ filter_external_links(Urls, BaseUrl) ->
 		 end, 
 		 Urls).
 
--spec filter_same_domains(list(), string() | binary()) -> list().
-filter_same_domains(Domains, Domain) ->
-    lists:filter(fun(D) ->
-			 is_same_domain(D, Domain)
-		 end, 
-		 Domains).
-
 -spec filter_same_domain_links(list(), string() | binary()) -> list().
 filter_same_domain_links(Urls, BaseUrl) ->	 	  
     lists:filter(fun(Url) ->	  	  
 			 is_same_domain_link(Url, BaseUrl)
 		 end, 
 		 Urls).
-
--spec filter_sub_domains(list(), string() | binary()) -> list().
-filter_sub_domains(Domains, Domain) ->
-    lists:filter(fun(D) ->
-			 is_sub_domain(D, Domain)
-		 end, 
-		 Domains).
 
 -spec filter_sub_domain_links(list(), string() | binary()) -> list().
 filter_sub_domain_links(Urls, BaseUrl) ->	
