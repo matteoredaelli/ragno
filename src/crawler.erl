@@ -166,12 +166,6 @@ analyze_domain(Domain, HttpOptions, Options, Url, {ok, FinalUrl, {{HttpVersion, 
 	    {system_time, erlang:system_time(microsecond)},
 	    {social, Social},
 	    {tags, Tags}],
-    case Type = proplists:get_value(save_to_file, Options, none) of
-	none ->
-	    true;
-	Type ->
-	    save_url_data(Url, Data, Type)
-    end,
     {ok , Data}.
 
 crawl_domain(Domain, HttpOptions, CrawlerOptions) when is_list(Domain) -> 
@@ -179,13 +173,21 @@ crawl_domain(Domain, HttpOptions, CrawlerOptions) when is_list(Domain) ->
 crawl_domain(Domain, HttpOptions, CrawlerOptions) when is_binary(Domain) ->
     logger:debug("DEBUG: crawling ~p\n", [Domain]),
     Url = erlang:list_to_binary([<<"https://">>, Domain, <<"/">>]),
-    case fetch_page_with_manual_redirect(Url, get, HttpOptions) of
-	{ok, FinalUrl, {Resp, Headers, Body}} ->
-	    {ok, Data} = analyze_domain(Domain, HttpOptions,CrawlerOptions, Url, {ok, FinalUrl, {Resp, Headers, Body}}),
-	    %% io:fwrite(jsone:encode(Data)),
-	    {ok, Data};
-	{error, Error} ->
-	    %% something went wrong
-	    logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
-	    {error, Domain}
+    {Ret, Data} = case fetch_page_with_manual_redirect(Url, get, HttpOptions) of
+		      {ok, FinalUrl, {Resp, Headers, Body}} ->
+			  analyze_domain(Domain, HttpOptions,CrawlerOptions, Url, {ok, FinalUrl, {Resp, Headers, Body}});
+		      {error, Error} ->
+			  %% something went wrong
+			  logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
+			  {error, [{url, Url},
+				   {domain, Domain},
+				   {http_resp_code, -1},
+				   {error, Error}
+				  ]}
+		  end,
+    case Type = proplists:get_value(save_to_file, CrawlerOptions, none) of
+	none ->
+	    true;
+	Type ->
+	    save_url_data(Url, Data, Type)
     end.
