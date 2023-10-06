@@ -133,7 +133,10 @@ filter_sub_domain_links(Urls, BaseUrl) ->
 		 end, 
 		 Urls).
 
-extract_domain(Url) ->
+extract_domain(Url) when is_list(Url)->
+    extract_domain(list_to_binary(Url));
+
+extract_domain(Url) when is_binary(Url)->
     %%io:format("DEBUG: base_urll ~p\n", [Url]),
     UrlMap = uri_string:parse(Url),
     maps:get(host, UrlMap).

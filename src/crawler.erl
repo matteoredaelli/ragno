@@ -69,8 +69,16 @@ fetch_page_with_manual_redirect(URL, Method, HttpOptions) when is_binary(URL) ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, Body}};
 	{ok, {{HttpVersion, Code, Reason}, Headers, Body}}  when Code < 310 , Code >= 300 ->
 	    NewURL=proplists:get_value("location", Headers),
+	    %% TODO  pirelli.com goes wrong!!
+	    %% ????????????
+
+
 	    %% the url  in Location can be relative (ex. mozilla.org)
 	    NewAbsURL = uri_string:resolve(NewURL, URL),
+	    NewAbsURLBin = case is_list(NewAbsURL) of
+			       true ->  list_to_binary(NewAbsURL);
+			       false ->  NewAbsURL
+			   end,
 	    %% TODO: follow teh redirect only if the domain doesn't change
 	    URLDom = links_ext:extract_domain(URL),
 	    NewAbsURLDom = links_ext:extract_domain(NewAbsURL),
@@ -78,7 +86,7 @@ fetch_page_with_manual_redirect(URL, Method, HttpOptions) when is_binary(URL) ->
 		true ->
 		    fetch_page_with_manual_redirect(list_to_binary(NewAbsURL), Method, HttpOptions);
 		false ->
-		    {ok, URL, {{HttpVersion, Code, Reason}, Headers, Body}}
+		    {ok, NewAbsURLBin, {{HttpVersion, Code, Reason}, Headers, Body}}
 	    end;
 	{ok, {{HttpVersion, Code, Reason}, Headers, _}}  when Code >= 400 ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, ""}};
@@ -95,7 +103,7 @@ get_final_url(Url, HttpOptions) ->
 		   Url
     end.
 
-analyze_domain(Domain, HttpOptions, Options, Url, {ok, FinalUrl, {_Resp, Headers, Body}}) ->
+analyze_domain(Domain, HttpOptions, Options, Url, {ok, FinalUrl, {{HttpVersion, Code, Reason}, Headers, Body}}) ->
     UrlMap = uri_string:parse(Url),
     Domain = maps:get(host, UrlMap),
     FinalUrlMap = uri_string:parse(FinalUrl),
@@ -144,17 +152,20 @@ analyze_domain(Domain, HttpOptions, Options, Url, {ok, FinalUrl, {_Resp, Headers
 	     end,
     logger:debug("Successfully crawled url ~p", [Url]),
     Data = [{url, Url}, 
-	  {final_url, FinalUrl},
-	  {domain, Domain},
-	  {final_domain, FinalDomain},
-	  {regex_data, RegexData},
-	  {headers, convert_headers_to_binary(FilteredHeaders)}, 
-	  {links, OrigLinks}, 
-	  {final_links, Links}, 
-	  {domains, UniqDomains},
-	  {system_time, erlang:system_time(microsecond)},
-	  {social, Social},
-	  {tags, Tags}],
+	    {http_version, list_to_binary(HttpVersion)},
+	    {http_resp_code, Code},
+	    {http_reason, list_to_binary(Reason)},
+	    {final_url, FinalUrl},
+	    {domain, Domain},
+	    {final_domain, FinalDomain},
+	    {regex_data, RegexData},
+	    {headers, convert_headers_to_binary(FilteredHeaders)}, 
+	    {links, OrigLinks}, 
+	    {final_links, Links}, 
+	    {domains, UniqDomains},
+	    {system_time, erlang:system_time(microsecond)},
+	    {social, Social},
+	    {tags, Tags}],
     case Type = proplists:get_value(save_to_file, Options, none) of
 	none ->
 	    true;
