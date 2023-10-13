@@ -9,6 +9,10 @@ Ragno is a light crawler for domains. It extract some useful info about the doma
   /   \
 ```
 
+## Build
+
+BUILD_WITHOUT_QUIC=1 make
+
 ## Usage
 
 From the command line

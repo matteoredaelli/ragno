@@ -4,7 +4,7 @@
 -export([start/2]).
 -export([stop/1]).
 -export([crawl_domains_string/1]).
--export([crawl_domains_string/3]).
+-export([crawl_domains_string/4]).
 
 -include_lib("crawler.hrl").
 
@@ -38,10 +38,10 @@ wait_for_and_halt(Pool) ->
 	    wait_for_and_halt(Pool)
     end.
 
-crawl_domains(Domains, HttpOptions, CrawlerOptions, Halt) ->
+crawl_domains(Domains, HttpOptions, HttpcRequestOptions, RagnoOptions, Halt) ->
     Pool = crawler_pool,
     [wpool:cast(Pool,
-		{crawler, crawl_domain, [Domain, HttpOptions, CrawlerOptions]})
+		{crawler, crawl_domain, [Domain, HttpOptions, HttpcRequestOptions, RagnoOptions]})
      || Domain <- Domains],
     case Halt of
 	true ->
@@ -52,9 +52,10 @@ crawl_domains(Domains, HttpOptions, CrawlerOptions, Halt) ->
 
 crawl_domains_string([DomainsString]) ->
     {ok, HttpOptions} = application:get_env(ragno, http_options),
-    {ok, CrawlerOptions} = application:get_env(ragno, crawler_default_options),
-    crawl_domains_string([DomainsString], HttpOptions, CrawlerOptions).
+    {ok, HttpcRequestOptions} = application:get_env(ragno, httpc_request_options),
+    {ok, RagnoOptions} = application:get_env(ragno, crawler_default_options),
+    crawl_domains_string([DomainsString], HttpOptions, HttpcRequestOptions, RagnoOptions).
 
-crawl_domains_string([DomainsString], HttpOptions, CrawlerOptions) ->
+crawl_domains_string([DomainsString], HttpOptions, HttpcRequestOptions, RagnoOptions) ->
     Domains = re:split(DomainsString, ","),
-    crawl_domains(Domains, HttpOptions, CrawlerOptions, true).
+    crawl_domains(Domains, HttpOptions, HttpcRequestOptions, RagnoOptions, true).

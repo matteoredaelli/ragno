@@ -7,7 +7,7 @@
 
 -module(crawler).
 
--export([crawl_domain/3]).
+-export([crawl_domain/4]).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -49,7 +49,7 @@ convert_headers_to_binary(List) ->
     lists:map(fun({Key, Val}) -> [list_to_binary(Key), list_to_binary(Val)] end,
 	      List).
 
-fetch_page(Url, Method, HttpOptions) ->
+fetch_page(Url, Method, HttpOptions, HttpcRequestOptions) ->
     httpc:request(Method, 
 		  {Url, [{"User-Agent", ?HTTP_DEFAULT_USER_AGENT}]},
 		   HttpOptions,
@@ -59,19 +59,18 @@ fetch_page(Url, Method, HttpOptions) ->
 		  %%], 
 		  %% TODO
 		  %% "head" request is often blocked: use get with the option {stream, {self, once}}
-		  [{body_format, binary}]).
+		  HttpcRequestOptions
+		  %%[{body_format, binary}]
+		 ).
 
-fetch_page_with_manual_redirect(Url, Method, HttpOptions) when is_list(Url) -> 
-    fetch_page_with_manual_redirect(list_to_binary(Url), Method, HttpOptions);
-fetch_page_with_manual_redirect(URL, Method, HttpOptions) when is_binary(URL) ->
-    case fetch_page(URL, Method, HttpOptions) of
+fetch_page_with_manual_redirect(Url, Method, HttpOptions, HttpcRequestOptions) when is_list(Url) -> 
+    fetch_page_with_manual_redirect(list_to_binary(Url), Method, HttpOptions, HttpcRequestOptions);
+fetch_page_with_manual_redirect(URL, Method, HttpOptions, HttpcRequestOptions) when is_binary(URL) ->
+    case fetch_page(URL, Method, HttpOptions, HttpcRequestOptions) of
 	{ok, {{HttpVersion, Code, Reason}, Headers, Body}} when Code >= 200, Code < 299  ->
 	    {ok, URL, {{HttpVersion, Code, Reason}, Headers, Body}};
 	{ok, {{HttpVersion, Code, Reason}, Headers, Body}}  when Code < 310 , Code >= 300 ->
 	    NewURL=proplists:get_value("location", Headers),
-	    %% TODO  pirelli.com goes wrong!!
-	    %% ????????????
-
 
 	    %% the url  in Location can be relative (ex. mozilla.org)
 	    NewAbsURL = uri_string:resolve(NewURL, URL),
@@ -84,7 +83,7 @@ fetch_page_with_manual_redirect(URL, Method, HttpOptions) when is_binary(URL) ->
 	    NewAbsURLDom = links_ext:extract_domain(NewAbsURL),
 	    case domains_ext:is_same_domain(URLDom, NewAbsURLDom) of 
 		true ->
-		    fetch_page_with_manual_redirect(list_to_binary(NewAbsURL), Method, HttpOptions);
+		    fetch_page_with_manual_redirect(list_to_binary(NewAbsURL), Method, HttpOptions, HttpcRequestOptions);
 		false ->
 		    {ok, NewAbsURLBin, {{HttpVersion, Code, Reason}, Headers, Body}}
 	    end;
@@ -93,58 +92,57 @@ fetch_page_with_manual_redirect(URL, Method, HttpOptions) when is_binary(URL) ->
 	Error -> Error
     end.
 
-get_final_url(Url, HttpOptions) ->
-    case fetch_page_with_manual_redirect(Url, head, HttpOptions) of
+get_final_url(Url, HttpOptions, HttpcRequestOptions) ->
+    %% TODO using get & stream instead of head: how to manage stream?
+    %%FinalHttpcRequestOptions = HttpcRequestOptions ++ [{stream, {self, once}}],
+    case fetch_page_with_manual_redirect(Url, head, HttpOptions, HttpcRequestOptions) of
 	       {ok, FinalUrl, _} ->
 		   FinalUrl;
 	       {error, Error} ->
 		   %% something went wrong
-		   logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
+		   logger:error("Skipping get_final_url ~p due to '~p'", [Url, Error]),
 		   Url
     end.
 
-analyze_domain(Domain, HttpOptions, Options, Url, {ok, FinalUrl, {{HttpVersion, Code, Reason}, Headers, Body}}) ->
+analyze_domain(Domain, HttpOptions, HttpcRequestOptions, RagnoOptions, Url, {ok, FinalUrl, {{HttpVersion, Code, Reason}, Headers, Body}}) ->
     UrlMap = uri_string:parse(Url),
     Domain = maps:get(host, UrlMap),
     FinalUrlMap = uri_string:parse(FinalUrl),
     FinalDomain = maps:get(host, FinalUrlMap),
-    FilteredHeaders =  case proplists:lookup(remove_headers, Options) of
+    FilteredHeaders =  case proplists:lookup(remove_headers, RagnoOptions) of
 			   {remove_headers, HeadersToBeDeleted} ->
 			       remove_headers(HeadersToBeDeleted, Headers);
 			   _ ->
 			       Headers
 		       end,
-    RegexData =  case proplists:get_value(extract_regex_data, Options, false) of
+    RegexData =  case proplists:get_value(extract_regex_data, RagnoOptions, false) of
 		     false -> [];
 		     RegexList ->
 			 links_ext:re_extract_all_regex_data(Body, RegexList)
 		 end,
     OrigLinks = links_ext:extract_links(Body, FinalUrl),
-    Links = case proplists:get_value(final_links, Options, false) of
+    Links = case proplists:get_value(final_links, RagnoOptions, false) of
 		true ->
-		    lists:map(fun(U) -> get_final_url(U, HttpOptions) end, 
+		    lists:map(fun(U) -> get_final_url(U, HttpOptions, HttpcRequestOptions) end, 
 			      OrigLinks);
 		_ ->
 		    OrigLinks
 	    end,  
-    UniqDomains = case proplists:get_value(extract_external_domains, Options, false) orelse 
-		      proplists:get_value(extract_subdomains, Options, false) of
+    UniqDomains = case proplists:get_value(extract_external_domains, RagnoOptions, false) orelse 
+		      proplists:get_value(extract_subdomains, RagnoOptions, false) of
 		      true ->
 			  links_ext:extract_domains(Links);
 		      _ ->
 			  []
 		  end,
-
-    %% TODO: www. domains should be skipped in order to avoid duplicates
-    %% or adding a cache for traking visited domaibs
 	       
-    Tags = case proplists:get_value(extract_tags, Options, false) of
+    Tags = case proplists:get_value(extract_tags, RagnoOptions, false) of
 	       true ->
-		   tagger:find_tags(FilteredHeaders);
+		   tagger_header:find_tags(FilteredHeaders);
 	       _ ->
 		   []
 	   end,
-    Social = case proplists:get_value(extract_social, Options, false) of
+    Social = case proplists:get_value(extract_social, RagnoOptions, false) of
 		 true ->
 		     social:find_identities(Links);
 		 _ ->
@@ -168,14 +166,14 @@ analyze_domain(Domain, HttpOptions, Options, Url, {ok, FinalUrl, {{HttpVersion, 
 	    {tags, Tags}],
     {ok , Data}.
 
-crawl_domain(Domain, HttpOptions, CrawlerOptions) when is_list(Domain) -> 
-   crawl_domain(list_to_binary(Domain), HttpOptions, CrawlerOptions);
-crawl_domain(Domain, HttpOptions, CrawlerOptions) when is_binary(Domain) ->
+crawl_domain(Domain, HttpOptions, HttpcRequestOptions, RagnoOptions) when is_list(Domain) -> 
+   crawl_domain(list_to_binary(Domain), HttpOptions, HttpcRequestOptions, RagnoOptions);
+crawl_domain(Domain, HttpOptions, HttpcRequestOptions, RagnoOptions) when is_binary(Domain) ->
     logger:debug("DEBUG: crawling ~p\n", [Domain]),
     Url = erlang:list_to_binary([<<"https://">>, Domain, <<"/">>]),
-    {Ret, Data} = case fetch_page_with_manual_redirect(Url, get, HttpOptions) of
+    {Ret, Data} = case fetch_page_with_manual_redirect(Url, get, HttpOptions, HttpcRequestOptions) of
 		      {ok, FinalUrl, {Resp, Headers, Body}} ->
-			  analyze_domain(Domain, HttpOptions,CrawlerOptions, Url, {ok, FinalUrl, {Resp, Headers, Body}});
+			  analyze_domain(Domain, HttpOptions, HttpcRequestOptions, RagnoOptions, Url, {ok, FinalUrl, {Resp, Headers, Body}});
 		      {error, Error} ->
 			  %% something went wrong
 			  logger:error("Skipping crawling url ~p due to '~p'", [Url, Error]),
@@ -185,9 +183,10 @@ crawl_domain(Domain, HttpOptions, CrawlerOptions) when is_binary(Domain) ->
 				   {error, Error}
 				  ]}
 		  end,
-    case Type = proplists:get_value(save_to_file, CrawlerOptions, none) of
+    case Type = proplists:get_value(save_to_file, RagnoOptions, none) of
 	none ->
 	    true;
 	Type ->
 	    save_url_data(Url, Data, Type)
-    end.
+    end,
+    Ret.
